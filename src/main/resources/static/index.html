@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>base66</title>
+  <style>
+    :root {
+      --bg: #eef3f7;
+      --panel: #ffffff;
+      --text: #17212b;
+      --muted: #506070;
+      --border: #d0d9e2;
+      --accent: #0f766e;
+      --accent-strong: #115e59;
+      --danger-bg: #fff1f2;
+      --danger-border: #fecdd3;
+      --danger-text: #9f1239;
+      --user: #daf4ed;
+      --bot: #e9eefb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 10% 10%, #dffaf4 0%, var(--bg) 40%, #dce5ef 100%);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .shell {
+      width: min(960px, 100%);
+      min-height: min(760px, calc(100vh - 40px));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 16px 42px rgba(15, 23, 42, 0.13);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .view {
+      height: 100%;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .view.hidden {
+      display: none !important;
+    }
+
+    .login-view {
+      display: grid;
+      place-items: center;
+      padding: 30px;
+      background: linear-gradient(140deg, #f0f9ff 0%, #ffffff 35%, #ecfeff 100%);
+    }
+
+    .login-card {
+      width: min(440px, 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #ffffff;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      padding: 24px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .login-title {
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      margin: 0;
+    }
+
+    .login-subtitle {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .field-label {
+      margin: 0;
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+    }
+
+    .action-btn {
+      border: none;
+      border-radius: 10px;
+      height: 44px;
+      background: var(--accent);
+      color: #ffffff;
+      font-size: 0.98rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .action-btn:hover {
+      background: var(--accent-strong);
+    }
+
+    .action-btn:disabled {
+      opacity: 0.56;
+      cursor: not-allowed;
+    }
+
+    .error {
+      margin: 0;
+      border: 1px solid var(--danger-border);
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      line-height: 1.35;
+      font-size: 0.92rem;
+    }
+
+    .chat-view {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .chat-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #ffffff;
+    }
+
+    .title-wrap {
+      display: grid;
+      gap: 4px;
+    }
+
+    .chat-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .session-meta {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .logout-btn {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      height: 36px;
+      padding: 0 12px;
+      background: #ffffff;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .logout-btn:hover {
+      background: #f8fafc;
+    }
+
+    .chat {
+      padding: 18px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scroll-behavior: smooth;
+      background: linear-gradient(180deg, #fcfeff 0%, #f7fafc 100%);
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid var(--border);
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--user);
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      background: var(--bot);
+    }
+
+    .message.error {
+      align-self: center;
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    .composer {
+      border-top: 1px solid var(--border);
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      background: #ffffff;
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 8px;
+      }
+
+      .shell {
+        min-height: calc(100vh - 16px);
+        border-radius: 14px;
+      }
+
+      .chat-header {
+        padding: 12px;
+      }
+
+      .chat {
+        padding: 12px;
+      }
+
+      .message {
+        max-width: 92%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section id="loginView" class="view login-view">
+      <form id="loginForm" class="login-card">
+        <h1 class="login-title">base66 login</h1>
+        <p class="login-subtitle">Sign in with one of your configured users to access the chat.</p>
+
+        <label class="field-label" for="usernameInput">Username</label>
+        <input id="usernameInput" class="input" type="text" autocomplete="username" required>
+
+        <label class="field-label" for="passwordInput">Password</label>
+        <input id="passwordInput" class="input" type="password" autocomplete="current-password" required>
+
+        <p id="loginError" class="error hidden" role="alert"></p>
+
+        <button id="loginBtn" class="action-btn" type="submit">Sign in</button>
+      </form>
+    </section>
+
+    <section id="chatView" class="view chat-view hidden">
+      <header class="chat-header">
+        <div class="title-wrap">
+          <h2 class="chat-title">base66</h2>
+          <p id="sessionMeta" class="session-meta">Signed in</p>
+        </div>
+        <button id="logoutBtn" class="logout-btn" type="button">Logout</button>
+      </header>
+
+      <section id="chat" class="chat" aria-live="polite"></section>
+
+      <form id="chatForm" class="composer">
+        <input
+          id="messageInput"
+          class="input"
+          type="text"
+          name="message"
+          placeholder="Type your message..."
+          autocomplete="off"
+          required
+        >
+        <button id="sendBtn" class="action-btn" type="submit">Send</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const TOKEN_KEY = 'base66.jwt';
+    const USERNAME_KEY = 'base66.username';
+
+    const loginViewEl = document.getElementById('loginView');
+    const chatViewEl = document.getElementById('chatView');
+
+    const loginFormEl = document.getElementById('loginForm');
+    const usernameInputEl = document.getElementById('usernameInput');
+    const passwordInputEl = document.getElementById('passwordInput');
+    const loginBtnEl = document.getElementById('loginBtn');
+    const loginErrorEl = document.getElementById('loginError');
+
+    const sessionMetaEl = document.getElementById('sessionMeta');
+    const logoutBtnEl = document.getElementById('logoutBtn');
+
+    const chatEl = document.getElementById('chat');
+    const chatFormEl = document.getElementById('chatForm');
+    const inputEl = document.getElementById('messageInput');
+    const sendBtnEl = document.getElementById('sendBtn');
+
+    function setLoginError(message) {
+      if (!message) {
+        loginErrorEl.classList.add('hidden');
+        loginErrorEl.textContent = '';
+        return;
+      }
+
+      loginErrorEl.textContent = message;
+      loginErrorEl.classList.remove('hidden');
+    }
+
+    function addMessage(text, role) {
+      const messageEl = document.createElement('div');
+      messageEl.className = `message ${role}`;
+      messageEl.textContent = text;
+      chatEl.appendChild(messageEl);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function readToken() {
+      return sessionStorage.getItem(TOKEN_KEY);
+    }
+
+    function showLogin(message) {
+      chatViewEl.classList.add('hidden');
+      loginViewEl.classList.remove('hidden');
+      setLoginError(message || '');
+      passwordInputEl.value = '';
+      usernameInputEl.focus();
+    }
+
+    function showChat(username) {
+      setLoginError('');
+      loginViewEl.classList.add('hidden');
+      chatViewEl.classList.remove('hidden');
+      sessionMetaEl.textContent = `Signed in as ${username}`;
+      inputEl.focus();
+
+      if (!chatEl.childElementCount) {
+        addMessage(`Welcome ${username}. You are now authenticated.`, 'bot');
+      }
+    }
+
+    function logout(message) {
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(USERNAME_KEY);
+      chatEl.innerHTML = '';
+      showLogin(message || '');
+    }
+
+    async function login(username, password) {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (!response.ok) {
+        let details = '';
+        try {
+          const err = await response.json();
+          details = err.detail || err.message || '';
+        } catch (_e) {
+          details = await response.text();
+        }
+        throw new Error(details || 'Invalid username or password');
+      }
+
+      return response.json();
+    }
+
+    async function sendMessage(message) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch('/api/base66/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ message })
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        let details = '';
+        try {
+          const err = await response.json();
+          details = err.detail || err.message || JSON.stringify(err);
+        } catch (_e) {
+          details = await response.text();
+        }
+        throw new Error(details || `Request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.response || '';
+    }
+
+    loginFormEl.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const username = usernameInputEl.value.trim();
+      const password = passwordInputEl.value;
+
+      if (!username || !password) {
+        setLoginError('Username and password are required.');
+        return;
+      }
+
+      loginBtnEl.disabled = true;
+      setLoginError('');
+
+      try {
+        const payload = await login(username, password);
+        if (!payload.token) {
+          throw new Error('Missing token in login response');
+        }
+
+        const loggedInUser = payload.username || username;
+        sessionStorage.setItem(TOKEN_KEY, payload.token);
+        sessionStorage.setItem(USERNAME_KEY, loggedInUser);
+        showChat(loggedInUser);
+      } catch (error) {
+        setLoginError(error.message || 'Unable to sign in');
+      } finally {
+        loginBtnEl.disabled = false;
+      }
+    });
+
+    chatFormEl.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const message = inputEl.value.trim();
+      if (!message) {
+        return;
+      }
+
+      addMessage(message, 'user');
+      inputEl.value = '';
+      inputEl.focus();
+
+      sendBtnEl.disabled = true;
+      try {
+        const reply = await sendMessage(message);
+        addMessage(reply || '(no response)', 'bot');
+      } catch (error) {
+        if (error.message !== 'Authentication required') {
+          addMessage(`Error: ${error.message}`, 'error');
+        }
+      } finally {
+        sendBtnEl.disabled = false;
+      }
+    });
+
+    logoutBtnEl.addEventListener('click', () => {
+      logout('You have been logged out.');
+    });
+
+    const existingToken = sessionStorage.getItem(TOKEN_KEY);
+    const existingUser = sessionStorage.getItem(USERNAME_KEY);
+    if (existingToken && existingUser) {
+      showChat(existingUser);
+    } else {
+      showLogin('');
+    }
+  </script>
+</body>
+</html>
