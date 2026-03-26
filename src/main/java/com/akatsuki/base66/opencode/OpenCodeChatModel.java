@@ -17,6 +17,7 @@ import org.springframework.web.util.UriBuilder;
 import reactor.core.publisher.Flux;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Optional;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,6 +47,7 @@ public class OpenCodeChatModel implements ChatModel {
     private SessionEntry initSession(String username) {
         Scope scope = scopeForUser(username);
         applyUserWorkspaceConfig(scope, username);
+        assertRequiredAgentConfigured(username);
         log.info("Initializing OpenCode session for user={}", username);
 
         Map<String, Object> sessionRequest = new LinkedHashMap<>();
@@ -79,10 +81,12 @@ public class OpenCodeChatModel implements ChatModel {
         String userText = prompt.getContents();
         String username = resolveAuthenticatedUsername();
         Scope scope = scopeForUser(username);
+        String requiredAgentName = userWorkspaceService.getRequiredAgentName(username);
+        assertRequiredAgentConfigured(username);
         String sessionId = getOrCreateSessionId(username);
 
         log.info("Streaming chat request to OpenCode. length={}", userText == null ? 0 : userText.length());
-        var requestPayload = new OpenCodePromptRequest(List.of(new TextPartInput(userText)));
+        var requestPayload = new OpenCodePromptRequest(List.of(new TextPartInput(userText)), requiredAgentName);
 
         return webClient.post()
             .uri(uriBuilder -> scopedUri(uriBuilder, scope, "/session/{id}/message", sessionId))
@@ -206,6 +210,59 @@ public class OpenCodeChatModel implements ChatModel {
 
             return Boolean.TRUE.equals(legacyResult);
         }
+    }
+
+    public void assertRequiredAgentConfigured(String username) {
+        String safeUsername = Objects.requireNonNull(username, "username is required").trim();
+        if (safeUsername.isEmpty()) {
+            throw new IllegalArgumentException("username is required");
+        }
+
+        Scope scope = scopeForUser(safeUsername);
+        String requiredAgentName = userWorkspaceService.getRequiredAgentName(safeUsername);
+        List<String> availableAgents = listAvailableAgents(scope);
+
+        if (!availableAgents.contains(requiredAgentName)) {
+            throw new IllegalStateException(
+                "Required agent '" + requiredAgentName + "' is not available for user '" + safeUsername + "'"
+            );
+        }
+    }
+
+    public void assertRequiredAgentsConfigured(List<String> usernames) {
+        List<String> missingAgents = new ArrayList<>();
+        for (String username : usernames) {
+            try {
+                assertRequiredAgentConfigured(username);
+            } catch (RuntimeException ex) {
+                String label = username == null ? "<null>" : username;
+                missingAgents.add(label + " (" + ex.getMessage() + ")");
+            }
+        }
+
+        if (!missingAgents.isEmpty()) {
+            throw new IllegalStateException(
+                "Required user agents are missing or invalid: " + String.join("; ", missingAgents)
+            );
+        }
+    }
+
+    private List<String> listAvailableAgents(Scope scope) {
+        List<Map<String, Object>> agents = webClient.get()
+            .uri(uriBuilder -> scopedUri(uriBuilder, scope, "/agent"))
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+            .block();
+
+        if (agents == null || agents.isEmpty()) {
+            return List.of();
+        }
+
+        return agents.stream()
+            .map(agent -> agent.get("name"))
+            .filter(Objects::nonNull)
+            .map(Object::toString)
+            .collect(Collectors.toList());
     }
 
     private String resolveAuthenticatedUsername() {

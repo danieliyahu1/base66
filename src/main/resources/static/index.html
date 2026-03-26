@@ -473,6 +473,7 @@
   <script>
     const TOKEN_KEY = 'base66.jwt';
     const USERNAME_KEY = 'base66.username';
+    const AGENT_KEY = 'base66.agent';
 
     const loginViewEl = document.getElementById('loginView');
     const chatViewEl = document.getElementById('chatView');
@@ -530,11 +531,11 @@
       usernameInputEl.focus();
     }
 
-    function showChat(username) {
+    function showChat(username, agentName) {
       setLoginError('');
       loginViewEl.classList.add('hidden');
       chatViewEl.classList.remove('hidden');
-      sessionMetaEl.textContent = `Signed in as ${username}`;
+      sessionMetaEl.textContent = `Signed in as ${username} • Agent: ${agentName}`;
       inputEl.focus();
 
       if (!chatEl.childElementCount) {
@@ -545,6 +546,7 @@
     function logout(message) {
       sessionStorage.removeItem(TOKEN_KEY);
       sessionStorage.removeItem(USERNAME_KEY);
+      sessionStorage.removeItem(AGENT_KEY);
       chatEl.innerHTML = '';
       pendingPermissionsEl.innerHTML = '';
       pendingPermissionsEl.classList.add('hidden');
@@ -829,9 +831,11 @@
         }
 
         const loggedInUser = payload.username || username;
+        const agentName = payload.agentName || `${loggedInUser}-agent`;
         sessionStorage.setItem(TOKEN_KEY, payload.token);
         sessionStorage.setItem(USERNAME_KEY, loggedInUser);
-        showChat(loggedInUser);
+        sessionStorage.setItem(AGENT_KEY, agentName);
+        showChat(loggedInUser, agentName);
       } catch (error) {
         setLoginError(error.message || 'Unable to sign in');
       } finally {
@@ -947,8 +951,9 @@
 
     const existingToken = sessionStorage.getItem(TOKEN_KEY);
     const existingUser = sessionStorage.getItem(USERNAME_KEY);
+    const existingAgent = sessionStorage.getItem(AGENT_KEY);
     if (existingToken && existingUser) {
-      showChat(existingUser);
+      showChat(existingUser, existingAgent || `${existingUser}-agent`);
     } else {
       showLogin('');
     }

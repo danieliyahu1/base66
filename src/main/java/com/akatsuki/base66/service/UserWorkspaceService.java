@@ -58,7 +58,7 @@ public class UserWorkspaceService {
         String safeUsername = sanitizeUsername(username);
         Path workspace = workspacesRoot.resolve(safeUsername).normalize();
         ensureDirectory(workspace);
-        initializeWorkspaceConfigStructure(workspace);
+        initializeWorkspaceConfigStructure(workspace, safeUsername);
         return workspace;
     }
 
@@ -68,6 +68,10 @@ public class UserWorkspaceService {
 
     public String getUserWorkspaceId(String username) {
         return "workspace-" + sanitizeUsername(username);
+    }
+
+    public String getRequiredAgentName(String username) {
+        return sanitizeUsername(username) + "-agent";
     }
 
     public String readUserConfigFile(String username, String relativePath) {
@@ -277,24 +281,26 @@ public class UserWorkspaceService {
         }
     }
 
-    private void initializeWorkspaceConfigStructure(Path workspace) {
+    private void initializeWorkspaceConfigStructure(Path workspace, String username) {
         Path opencodeDir = workspace.resolve(".opencode");
         ensureDirectory(opencodeDir);
         for (String dirName : OPENCODE_CONFIG_DIRS) {
             ensureDirectory(opencodeDir.resolve(dirName));
         }
 
-        boolean rootConfigChanged = initializeOrUpdateRootOpencodeConfig(workspace.resolve("opencode.json"));
+        boolean rootConfigChanged = initializeOrUpdateRootOpencodeConfig(workspace.resolve("opencode.json"), username);
         boolean tuiChanged = initializeTuiConfigIfMissing(workspace.resolve("tui.json"));
-        if (rootConfigChanged || tuiChanged) {
+        boolean agentsMdChanged = initializeAgentsGuide(workspace.resolve("AGENTS.md"), username);
+        if (rootConfigChanged || tuiChanged || agentsMdChanged) {
             log.info("Initialized per-user OpenCode config structure in workspace {}", workspace);
         }
     }
 
-    private boolean initializeOrUpdateRootOpencodeConfig(Path opencodeConfig) {
+    private boolean initializeOrUpdateRootOpencodeConfig(Path opencodeConfig, String username) {
         try {
             ObjectNode root = readOrCreateConfig(opencodeConfig);
             boolean changed = false;
+            String requiredAgentName = getRequiredAgentName(username);
 
             if (!root.has("$schema")) {
                 root.put("$schema", "https://opencode.ai/config.json");
@@ -319,6 +325,58 @@ public class UserWorkspaceService {
             // If older Base66 versions wrote it, remove it to keep session creation valid.
             if (root.has("workspace")) {
                 root.remove("workspace");
+                changed = true;
+            }
+
+            if (!requiredAgentName.equals(root.path("default_agent").asText(null))) {
+                root.put("default_agent", requiredAgentName);
+                changed = true;
+            }
+
+            ObjectNode agentsNode;
+            JsonNode existingAgentsNode = root.get("agent");
+            if (existingAgentsNode instanceof ObjectNode existingObjectNode) {
+                agentsNode = existingObjectNode;
+            } else {
+                agentsNode = objectMapper.createObjectNode();
+                root.set("agent", agentsNode);
+                changed = true;
+            }
+
+            ObjectNode userAgentNode;
+            JsonNode existingUserAgentNode = agentsNode.get(requiredAgentName);
+            if (existingUserAgentNode instanceof ObjectNode existingObjectNode) {
+                userAgentNode = existingObjectNode;
+            } else {
+                userAgentNode = objectMapper.createObjectNode();
+                agentsNode.set(requiredAgentName, userAgentNode);
+                changed = true;
+            }
+
+            if (!"primary".equals(userAgentNode.path("mode").asText(null))) {
+                userAgentNode.put("mode", "primary");
+                changed = true;
+            }
+            if (!"allow".equals(userAgentNode.path("permission").asText(null))) {
+                userAgentNode.put("permission", "allow");
+                changed = true;
+            }
+
+            String expectedDescription = "Dedicated Base66 agent for user " + username;
+            if (!expectedDescription.equals(userAgentNode.path("description").asText(null))) {
+                userAgentNode.put("description", expectedDescription);
+                changed = true;
+            }
+
+            String expectedPrompt = String.join("\n", List.of(
+                "You are the dedicated Base66 agent for user " + username + ".",
+                "Use all built-in tools when needed to complete tasks safely and accurately.",
+                "Use both global and project skills when relevant.",
+                "Use both global and project MCP integrations when relevant.",
+                "Respect global and project configuration while operating in this workspace."
+            ));
+            if (!expectedPrompt.equals(userAgentNode.path("prompt").asText(null))) {
+                userAgentNode.put("prompt", expectedPrompt);
                 changed = true;
             }
 
@@ -349,6 +407,43 @@ public class UserWorkspaceService {
         } catch (IOException e) {
             throw new IllegalStateException("Failed to initialize scoped OpenCode tui config", e);
         }
+    }
+
+    private boolean initializeAgentsGuide(Path agentsPath, String username) {
+        try {
+            String expected = buildAgentsGuideContent(username);
+            if (Files.exists(agentsPath)) {
+                String existing = Files.readString(agentsPath, StandardCharsets.UTF_8);
+                if (expected.equals(existing)) {
+                    return false;
+                }
+            }
+
+            Files.writeString(agentsPath, expected, StandardCharsets.UTF_8);
+            return true;
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to initialize user AGENTS.md", e);
+        }
+    }
+
+    private String buildAgentsGuideContent(String username) {
+        String requiredAgentName = getRequiredAgentName(username);
+        return String.join(System.lineSeparator(), List.of(
+            "# Base66 User Agent Guide",
+            "",
+            "User: " + username,
+            "Required agent: " + requiredAgentName,
+            "",
+            "This workspace is configured to always use the required agent above.",
+            "The required agent is configured in opencode.json as the default agent.",
+            "",
+            "Required behavior:",
+            "- Use all built-in tools when needed.",
+            "- Use both global and project skills when relevant.",
+            "- Use both global and project MCP integrations when relevant.",
+            "- Respect global and project configuration.",
+            ""
+        ));
     }
 
     private ObjectNode readOrCreateConfig(Path opencodeConfig) throws IOException {
