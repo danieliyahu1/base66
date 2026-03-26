@@ -593,6 +593,35 @@
     const TOKEN_KEY = 'base66.jwt';
     const USERNAME_KEY = 'base66.username';
     const AGENT_KEY = 'base66.agent';
+    const API_BASE_KEY = 'base66.apiBaseUrl';
+
+    function normalizeApiBaseUrl(value) {
+      const raw = (value || '').trim();
+      if (!raw) {
+        return '';
+      }
+      return raw.replace(/\/+$/, '');
+    }
+
+    const queryApiBaseUrl = new URLSearchParams(window.location.search).get('apiBaseUrl');
+    if (queryApiBaseUrl) {
+      localStorage.setItem(API_BASE_KEY, queryApiBaseUrl);
+    }
+
+    const configuredApiBaseUrl =
+      window.BASE66_API_BASE_URL
+      || localStorage.getItem(API_BASE_KEY)
+      || '';
+
+    const API_BASE_URL = normalizeApiBaseUrl(configuredApiBaseUrl);
+
+    function apiUrl(path) {
+      if (!path) {
+        return API_BASE_URL;
+      }
+      const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+      return API_BASE_URL ? `${API_BASE_URL}${normalizedPath}` : normalizedPath;
+    }
 
     const loginViewEl = document.getElementById('loginView');
     const chatViewEl = document.getElementById('chatView');
@@ -792,7 +821,7 @@
         return [];
       }
 
-      const response = await fetch('/api/base66/sessions?limit=30', {
+      const response = await fetch(apiUrl('/api/base66/sessions?limit=30'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -817,7 +846,7 @@
         throw new Error('Not authenticated');
       }
 
-      const response = await fetch('/api/base66/sessions', {
+      const response = await fetch(apiUrl('/api/base66/sessions'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -845,7 +874,7 @@
         throw new Error('Not authenticated');
       }
 
-      const response = await fetch(`/api/base66/sessions/${encodeURIComponent(sessionId)}/select`, {
+      const response = await fetch(apiUrl(`/api/base66/sessions/${encodeURIComponent(sessionId)}/select`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -872,7 +901,7 @@
         throw new Error('Not authenticated');
       }
 
-      const response = await fetch(`/api/base66/sessions/${encodeURIComponent(sessionId)}`, {
+      const response = await fetch(apiUrl(`/api/base66/sessions/${encodeURIComponent(sessionId)}`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -900,7 +929,7 @@
         throw new Error('Not authenticated');
       }
 
-      const response = await fetch(`/api/base66/sessions/${encodeURIComponent(sessionId)}`, {
+      const response = await fetch(apiUrl(`/api/base66/sessions/${encodeURIComponent(sessionId)}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -1008,7 +1037,7 @@
         return [];
       }
 
-      const response = await fetch('/api/base66/permissions/pending', {
+      const response = await fetch(apiUrl('/api/base66/permissions/pending'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1062,7 +1091,7 @@
         return false;
       }
 
-      const response = await fetch(`/api/base66/permissions/${encodeURIComponent(requestId)}/reply`, {
+      const response = await fetch(apiUrl(`/api/base66/permissions/${encodeURIComponent(requestId)}/reply`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1085,7 +1114,7 @@
     }
 
     async function login(username, password) {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1114,7 +1143,7 @@
         throw new Error('Not authenticated');
       }
 
-      const response = await fetch('/api/base66/chat', {
+      const response = await fetch(apiUrl('/api/base66/chat'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1150,7 +1179,7 @@
         throw new Error('Not authenticated');
       }
 
-      const response = await fetch('/api/base66/skills/from-text', {
+      const response = await fetch(apiUrl('/api/base66/skills/from-text'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

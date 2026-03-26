@@ -249,7 +249,19 @@ public class OpenCodeProcessService {
             URI uri = URI.create(trimmed);
             String host = uri.getHost();
             int port = uri.getPort();
-            if (!StringUtils.hasText(host) || port <= 0) {
+            if (!StringUtils.hasText(host)) {
+                throw new IllegalStateException("opencode.base-url must include host and port, got: " + trimmed);
+            }
+
+            if (port <= 0) {
+                port = switch ((uri.getScheme() == null ? "" : uri.getScheme().toLowerCase())) {
+                    case "http" -> 80;
+                    case "https" -> 443;
+                    default -> -1;
+                };
+            }
+
+            if (port <= 0) {
                 throw new IllegalStateException("opencode.base-url must include host and port, got: " + trimmed);
             }
             return new Endpoint(host, port);
