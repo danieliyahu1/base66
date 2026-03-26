@@ -51,7 +51,7 @@
     }
 
     .hidden {
-      display: none;
+      display: none !important;
     }
 
     .view.hidden {
@@ -189,6 +189,27 @@
       background: #f8fafc;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ghost-btn {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      height: 36px;
+      padding: 0 12px;
+      background: #f8fafc;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .ghost-btn:hover {
+      background: #eef2f7;
+    }
+
     .chat {
       padding: 18px;
       overflow-y: auto;
@@ -224,6 +245,123 @@
       background: var(--danger-bg);
       border-color: var(--danger-border);
       color: var(--danger-text);
+    }
+
+    .pending-pane {
+      border-top: 1px solid var(--border);
+      background: #fffbeb;
+      padding: 12px 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .skill-pane {
+      border-top: 1px solid var(--border);
+      background: #eef6ff;
+      padding: 12px 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .skill-title {
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #1d4ed8;
+    }
+
+    .skill-hint {
+      margin: 0;
+      font-size: 0.85rem;
+      color: #1e3a8a;
+    }
+
+    .skill-input {
+      width: 100%;
+      min-height: 120px;
+      max-height: 260px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      outline: none;
+    }
+
+    .skill-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+    }
+
+    .skill-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .skill-actions .action-btn {
+      height: 36px;
+      padding: 0 12px;
+    }
+
+    .pending-title {
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #92400e;
+    }
+
+    .pending-card {
+      border: 1px solid #fcd34d;
+      border-radius: 10px;
+      background: #fffbeb;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .pending-meta {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #78350f;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    .pending-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pending-btn {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      height: 32px;
+      padding: 0 10px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .pending-btn.allow {
+      background: #dcfce7;
+      border-color: #86efac;
+      color: #14532d;
+    }
+
+    .pending-btn.always {
+      background: #e0f2fe;
+      border-color: #7dd3fc;
+      color: #0c4a6e;
+    }
+
+    .pending-btn.reject {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #7f1d1d;
     }
 
     .composer {
@@ -284,10 +422,38 @@
           <h2 class="chat-title">base66</h2>
           <p id="sessionMeta" class="session-meta">Signed in</p>
         </div>
-        <button id="logoutBtn" class="logout-btn" type="button">Logout</button>
+        <div class="header-actions">
+          <button id="skillBtn" class="ghost-btn" type="button">Create Skill</button>
+          <button id="logoutBtn" class="logout-btn" type="button">Logout</button>
+        </div>
       </header>
 
       <section id="chat" class="chat" aria-live="polite"></section>
+
+      <section id="pendingPermissions" class="pending-pane hidden" aria-live="polite"></section>
+
+      <section id="skillPane" class="skill-pane hidden" aria-live="polite">
+        <p class="skill-title">Create Skill From Free Text</p>
+        <p class="skill-hint">Provide skill name and content. OpenCode will create SKILL.md and generate only the description.</p>
+        <label class="field-label" for="skillNameInput">Skill name</label>
+        <input
+          id="skillNameInput"
+          class="input"
+          type="text"
+          placeholder="example: java-controller-guardrails"
+          autocomplete="off"
+        >
+        <label class="field-label" for="skillTextInput">Skill content</label>
+        <textarea
+          id="skillTextInput"
+          class="skill-input"
+          placeholder="Example: Create a skill that reviews Java controllers for auth and validation issues..."
+        ></textarea>
+        <div class="skill-actions">
+          <button id="submitSkillBtn" class="action-btn" type="button">Create</button>
+          <button id="cancelSkillBtn" class="ghost-btn" type="button">Cancel</button>
+        </div>
+      </section>
 
       <form id="chatForm" class="composer">
         <input
@@ -318,12 +484,20 @@
     const loginErrorEl = document.getElementById('loginError');
 
     const sessionMetaEl = document.getElementById('sessionMeta');
+    const skillBtnEl = document.getElementById('skillBtn');
     const logoutBtnEl = document.getElementById('logoutBtn');
 
     const chatEl = document.getElementById('chat');
+    const pendingPermissionsEl = document.getElementById('pendingPermissions');
+    const skillPaneEl = document.getElementById('skillPane');
+    const skillNameInputEl = document.getElementById('skillNameInput');
+    const skillTextInputEl = document.getElementById('skillTextInput');
+    const submitSkillBtnEl = document.getElementById('submitSkillBtn');
+    const cancelSkillBtnEl = document.getElementById('cancelSkillBtn');
     const chatFormEl = document.getElementById('chatForm');
     const inputEl = document.getElementById('messageInput');
     const sendBtnEl = document.getElementById('sendBtn');
+    let permissionPollTimer = null;
 
     function setLoginError(message) {
       if (!message) {
@@ -372,7 +546,173 @@
       sessionStorage.removeItem(TOKEN_KEY);
       sessionStorage.removeItem(USERNAME_KEY);
       chatEl.innerHTML = '';
+      pendingPermissionsEl.innerHTML = '';
+      pendingPermissionsEl.classList.add('hidden');
+      skillPaneEl.classList.add('hidden');
+      skillNameInputEl.value = '';
+      skillTextInputEl.value = '';
+      if (permissionPollTimer) {
+        clearInterval(permissionPollTimer);
+        permissionPollTimer = null;
+      }
       showLogin(message || '');
+    }
+
+    function openSkillPane() {
+      skillPaneEl.classList.remove('hidden');
+      skillNameInputEl.focus();
+    }
+
+    function closeSkillPane() {
+      skillPaneEl.classList.add('hidden');
+      skillNameInputEl.value = '';
+      skillTextInputEl.value = '';
+    }
+
+    function renderPendingPermissions(permissions) {
+      if (!permissions || !permissions.length) {
+        pendingPermissionsEl.innerHTML = '';
+        pendingPermissionsEl.classList.add('hidden');
+        return;
+      }
+
+      const title = document.createElement('p');
+      title.className = 'pending-title';
+      title.textContent = 'OpenCode is waiting for your permission';
+
+      const frag = document.createDocumentFragment();
+      frag.appendChild(title);
+
+      permissions.forEach((item) => {
+        const card = document.createElement('article');
+        card.className = 'pending-card';
+
+        const patterns = Array.isArray(item.patterns) && item.patterns.length
+          ? item.patterns.map((p) => `- ${p}`).join('\n')
+          : '(no patterns provided)';
+
+        const meta = document.createElement('p');
+        meta.className = 'pending-meta';
+        meta.textContent = `Type: ${item.permission || 'unknown'}\n${patterns}`;
+        card.appendChild(meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'pending-actions';
+
+        const onceBtn = document.createElement('button');
+        onceBtn.className = 'pending-btn allow';
+        onceBtn.type = 'button';
+        onceBtn.textContent = 'Allow once';
+        onceBtn.setAttribute('data-request-id', item.id || '');
+        onceBtn.setAttribute('data-reply', 'once');
+
+        const alwaysBtn = document.createElement('button');
+        alwaysBtn.className = 'pending-btn always';
+        alwaysBtn.type = 'button';
+        alwaysBtn.textContent = 'Allow always';
+        alwaysBtn.setAttribute('data-request-id', item.id || '');
+        alwaysBtn.setAttribute('data-reply', 'always');
+
+        const rejectBtn = document.createElement('button');
+        rejectBtn.className = 'pending-btn reject';
+        rejectBtn.type = 'button';
+        rejectBtn.textContent = 'Reject';
+        rejectBtn.setAttribute('data-request-id', item.id || '');
+        rejectBtn.setAttribute('data-reply', 'reject');
+
+        actions.appendChild(onceBtn);
+        actions.appendChild(alwaysBtn);
+        actions.appendChild(rejectBtn);
+        card.appendChild(actions);
+
+        frag.appendChild(card);
+      });
+
+      pendingPermissionsEl.innerHTML = '';
+      pendingPermissionsEl.appendChild(frag);
+      pendingPermissionsEl.classList.remove('hidden');
+    }
+
+    async function fetchPendingPermissions() {
+      const token = readToken();
+      if (!token) {
+        return [];
+      }
+
+      const response = await fetch('/api/base66/permissions/pending', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        return [];
+      }
+
+      if (!response.ok) {
+        return [];
+      }
+
+      return response.json();
+    }
+
+    async function refreshPendingPermissions() {
+      try {
+        const permissions = await fetchPendingPermissions();
+        renderPendingPermissions(permissions);
+        return permissions.length;
+      } catch (_error) {
+        return 0;
+      }
+    }
+
+    function startPermissionPolling() {
+      if (permissionPollTimer) {
+        return;
+      }
+
+      void refreshPendingPermissions();
+      permissionPollTimer = setInterval(() => {
+        void refreshPendingPermissions();
+      }, 2000);
+    }
+
+    function stopPermissionPolling() {
+      if (!permissionPollTimer) {
+        return;
+      }
+      clearInterval(permissionPollTimer);
+      permissionPollTimer = null;
+    }
+
+    async function replyPermission(requestId, reply) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        return false;
+      }
+
+      const response = await fetch(`/api/base66/permissions/${encodeURIComponent(requestId)}/reply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reply })
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        return false;
+      }
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const payload = await response.json();
+      return Boolean(payload.success);
     }
 
     async function login(username, password) {
@@ -434,6 +774,41 @@
       return data.response || '';
     }
 
+    async function createSkillFromText(skillName, content) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch('/api/base66/skills/from-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ skillName, content })
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        let details = '';
+        try {
+          const err = await response.json();
+          details = err.detail || err.message || JSON.stringify(err);
+        } catch (_e) {
+          details = await response.text();
+        }
+        throw new Error(details || `Skill creation failed with status ${response.status}`);
+      }
+
+      return response.json();
+    }
+
     loginFormEl.addEventListener('submit', async (event) => {
       event.preventDefault();
       const username = usernameInputEl.value.trim();
@@ -476,6 +851,7 @@
       inputEl.focus();
 
       sendBtnEl.disabled = true;
+      startPermissionPolling();
       try {
         const reply = await sendMessage(message);
         addMessage(reply || '(no response)', 'bot');
@@ -484,7 +860,84 @@
           addMessage(`Error: ${error.message}`, 'error');
         }
       } finally {
+        const pendingCount = await refreshPendingPermissions();
+        if (pendingCount === 0) {
+          stopPermissionPolling();
+        }
         sendBtnEl.disabled = false;
+      }
+    });
+
+    pendingPermissionsEl.addEventListener('click', async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLButtonElement)) {
+        return;
+      }
+
+      const requestId = target.getAttribute('data-request-id');
+      const reply = target.getAttribute('data-reply');
+      if (!requestId || !reply) {
+        return;
+      }
+
+      target.disabled = true;
+      const success = await replyPermission(requestId, reply);
+      if (!success) {
+        addMessage('Error: failed to send permission reply.', 'error');
+      }
+      await refreshPendingPermissions();
+      target.disabled = false;
+    });
+
+    skillBtnEl.addEventListener('click', () => {
+      if (skillPaneEl.classList.contains('hidden')) {
+        openSkillPane();
+        return;
+      }
+      closeSkillPane();
+    });
+
+    cancelSkillBtnEl.addEventListener('click', () => {
+      closeSkillPane();
+    });
+
+    submitSkillBtnEl.addEventListener('click', async () => {
+      const skillName = skillNameInputEl.value.trim();
+      const freeText = skillTextInputEl.value.trim();
+      if (!skillName) {
+        addMessage('Error: skill name is required.', 'error');
+        return;
+      }
+      if (!freeText) {
+        addMessage('Error: skill content is required.', 'error');
+        return;
+      }
+
+      submitSkillBtnEl.disabled = true;
+      cancelSkillBtnEl.disabled = true;
+      addMessage('Creating skill from text...', 'bot');
+      startPermissionPolling();
+
+      try {
+        const payload = await createSkillFromText(skillName, freeText);
+        if (!payload.success) {
+          addMessage(`Skill creation failed: ${payload.message || 'Operation failed.'}`, 'error');
+          return;
+        }
+
+        addMessage(`Skill created at ${payload.path}`, 'bot');
+        closeSkillPane();
+      } catch (error) {
+        if (error.message !== 'Authentication required') {
+          addMessage(`Skill creation failed: ${error.message}`, 'error');
+        }
+      } finally {
+        const pendingCount = await refreshPendingPermissions();
+        if (pendingCount === 0) {
+          stopPermissionPolling();
+        }
+        submitSkillBtnEl.disabled = false;
+        cancelSkillBtnEl.disabled = false;
       }
     });
 

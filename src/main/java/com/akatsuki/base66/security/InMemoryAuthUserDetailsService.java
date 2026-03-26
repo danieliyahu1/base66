@@ -3,6 +3,7 @@ package com.akatsuki.base66.security;
 import com.akatsuki.base66.config.AuthProperties;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -11,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 public class InMemoryAuthUserDetailsService implements UserDetailsService {
 
     private final Map<String, UserDetails> usersByUsername;
@@ -30,6 +32,8 @@ public class InMemoryAuthUserDetailsService implements UserDetailsService {
                 throw new IllegalStateException("Duplicate username configured: " + userDetails.getUsername());
             }
         }
+
+        log.info("Loaded {} in-memory auth user(s): {}", usersByUsername.size(), usersByUsername.keySet());
     }
 
     @Override
