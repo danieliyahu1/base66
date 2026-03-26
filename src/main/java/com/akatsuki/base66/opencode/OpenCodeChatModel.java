@@ -162,6 +162,201 @@ public class OpenCodeChatModel implements ChatModel {
             .collect(Collectors.toList());
     }
 
+    public List<OpenCodeSessionInfo> listSessions(String username, int limit) {
+        String safeUsername = Objects.requireNonNull(username, "username is required").trim();
+        if (safeUsername.isEmpty()) {
+            throw new IllegalArgumentException("username is required");
+        }
+
+        Scope scope = scopeForUser(safeUsername);
+        List<Map<String, Object>> sessions = webClient.get()
+            .uri(uriBuilder -> {
+                UriBuilder scoped = uriBuilder
+                    .path("/session")
+                    .queryParam("directory", scope.directory())
+                    .queryParam("limit", Math.max(1, limit));
+
+                Optional.ofNullable(scope.workspaceId())
+                    .filter(id -> id.startsWith("wrk"))
+                    .ifPresent(id -> scoped.queryParam("workspace", id));
+
+                return scoped.build();
+            })
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+            .block();
+
+        if (sessions == null || sessions.isEmpty()) {
+            return List.of();
+        }
+
+        String activeSessionId = Optional.ofNullable(sessionsByUser.get(safeUsername))
+            .map(SessionEntry::sessionId)
+            .orElse(null);
+
+        List<OpenCodeSessionInfo> result = new ArrayList<>();
+        for (Map<String, Object> rawSession : sessions) {
+            OpenCodeSessionInfo parsed = parseSession(rawSession, activeSessionId);
+            if (parsed != null) {
+                result.add(parsed);
+            }
+        }
+        return result;
+    }
+
+    public OpenCodeSessionInfo createSession(String username, String title) {
+        String safeUsername = Objects.requireNonNull(username, "username is required").trim();
+        if (safeUsername.isEmpty()) {
+            throw new IllegalArgumentException("username is required");
+        }
+
+        Scope scope = scopeForUser(safeUsername);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (title != null && !title.isBlank()) {
+            payload.put("title", title.trim());
+        }
+
+        Map<String, Object> response = webClient.post()
+            .uri(uriBuilder -> scopedUri(uriBuilder, scope, "/session"))
+            .bodyValue(payload)
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+            .block();
+
+        if (response == null) {
+            throw new IllegalStateException("OpenCode did not return a created session");
+        }
+
+        String sessionId = Objects.toString(response.get("id"), "").trim();
+        if (sessionId.isEmpty()) {
+            throw new IllegalStateException("OpenCode session response did not include an id");
+        }
+
+        sessionsByUser.put(safeUsername, new SessionEntry(sessionId, System.currentTimeMillis()));
+        OpenCodeSessionInfo parsed = parseSession(response, sessionId);
+        if (parsed != null) {
+            return parsed;
+        }
+
+        return new OpenCodeSessionInfo(sessionId, title == null ? "" : title.trim(), 0L, 0L, true);
+    }
+
+    public boolean selectSession(String username, String sessionId) {
+        String safeUsername = Objects.requireNonNull(username, "username is required").trim();
+        String safeSessionId = Objects.requireNonNull(sessionId, "sessionId is required").trim();
+        if (safeUsername.isEmpty() || safeSessionId.isEmpty()) {
+            throw new IllegalArgumentException("username and sessionId are required");
+        }
+
+        Scope scope = scopeForUser(safeUsername);
+        Map<String, Object> session = webClient.get()
+            .uri(uriBuilder -> scopedUri(uriBuilder, scope, "/session/{id}", safeSessionId))
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+            .block();
+
+        if (session == null || !safeSessionId.equals(Objects.toString(session.get("id"), "").trim())) {
+            return false;
+        }
+
+        sessionsByUser.put(safeUsername, new SessionEntry(safeSessionId, System.currentTimeMillis()));
+        return true;
+    }
+
+    public OpenCodeSessionInfo renameSession(String username, String sessionId, String title) {
+        String safeUsername = Objects.requireNonNull(username, "username is required").trim();
+        String safeSessionId = Objects.requireNonNull(sessionId, "sessionId is required").trim();
+        String safeTitle = Objects.requireNonNull(title, "title is required").trim();
+        if (safeUsername.isEmpty() || safeSessionId.isEmpty() || safeTitle.isEmpty()) {
+            throw new IllegalArgumentException("username, sessionId and title are required");
+        }
+
+        Scope scope = scopeForUser(safeUsername);
+        Map<String, Object> updated = webClient.patch()
+            .uri(uriBuilder -> scopedUri(uriBuilder, scope, "/session/{id}", safeSessionId))
+            .bodyValue(Map.of("title", safeTitle))
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+            .block();
+
+        if (updated == null) {
+            throw new IllegalStateException("OpenCode did not return updated session");
+        }
+
+        OpenCodeSessionInfo parsed = parseSession(updated, getActiveSessionId(safeUsername));
+        if (parsed != null) {
+            return parsed;
+        }
+        return new OpenCodeSessionInfo(safeSessionId, safeTitle, 0L, 0L, safeSessionId.equals(getActiveSessionId(safeUsername)));
+    }
+
+    public boolean deleteSession(String username, String sessionId) {
+        String safeUsername = Objects.requireNonNull(username, "username is required").trim();
+        String safeSessionId = Objects.requireNonNull(sessionId, "sessionId is required").trim();
+        if (safeUsername.isEmpty() || safeSessionId.isEmpty()) {
+            throw new IllegalArgumentException("username and sessionId are required");
+        }
+
+        Scope scope = scopeForUser(safeUsername);
+        Boolean deleted = webClient.delete()
+            .uri(uriBuilder -> scopedUri(uriBuilder, scope, "/session/{id}", safeSessionId))
+            .retrieve()
+            .bodyToMono(Boolean.class)
+            .block();
+
+        if (!Boolean.TRUE.equals(deleted)) {
+            return false;
+        }
+
+        String activeSessionId = getActiveSessionId(safeUsername);
+        if (safeSessionId.equals(activeSessionId)) {
+            sessionsByUser.remove(safeUsername);
+        }
+        return true;
+    }
+
+    private String getActiveSessionId(String username) {
+        return Optional.ofNullable(sessionsByUser.get(username))
+            .map(SessionEntry::sessionId)
+            .orElse(null);
+    }
+
+    private OpenCodeSessionInfo parseSession(Map<String, Object> raw, String activeSessionId) {
+        if (raw == null) {
+            return null;
+        }
+
+        String id = Objects.toString(raw.get("id"), "").trim();
+        if (id.isEmpty()) {
+            return null;
+        }
+
+        String title = Objects.toString(raw.get("title"), "");
+        Object timeNode = raw.get("time");
+        long createdAt = 0L;
+        long updatedAt = 0L;
+        if (timeNode instanceof Map<?, ?> timeMap) {
+            createdAt = toLong(timeMap.get("created"));
+            updatedAt = toLong(timeMap.get("updated"));
+        }
+
+        return new OpenCodeSessionInfo(id, title, createdAt, updatedAt, id.equals(activeSessionId));
+    }
+
+    private long toLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException ignored) {
+            return 0L;
+        }
+    }
+
     public boolean isPermissionRequestOwnedByUser(String username, String requestId) {
         String safeRequestId = Objects.requireNonNull(requestId, "requestId is required").trim();
         if (safeRequestId.isEmpty()) {
@@ -358,6 +553,15 @@ public class OpenCodeChatModel implements ChatModel {
     }
 
     private record SessionEntry(String sessionId, long createdAtMillis) {
+    }
+
+    public record OpenCodeSessionInfo(
+        String id,
+        String title,
+        long createdAt,
+        long updatedAt,
+        boolean active
+    ) {
     }
 
     @Override

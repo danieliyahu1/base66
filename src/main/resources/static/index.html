@@ -255,6 +255,115 @@
       gap: 10px;
     }
 
+    .session-pane {
+      border-top: 1px solid var(--border);
+      background: #f0f9ff;
+      padding: 12px 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .session-title {
+      margin: 0;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #075985;
+    }
+
+    .session-create {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    .session-list {
+      display: grid;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .session-item {
+      border: 1px solid #bae6fd;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .session-item-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .session-item-title {
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #0c4a6e;
+    }
+
+    .session-item-meta {
+      margin: 0;
+      font-size: 0.82rem;
+      color: #334155;
+    }
+
+    .session-pill {
+      border-radius: 999px;
+      border: 1px solid #22c55e;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+
+    .session-select-btn {
+      border: 1px solid #7dd3fc;
+      border-radius: 8px;
+      background: #e0f2fe;
+      color: #0c4a6e;
+      font-size: 0.8rem;
+      font-weight: 600;
+      height: 30px;
+      padding: 0 10px;
+      cursor: pointer;
+      justify-self: start;
+    }
+
+    .session-item-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .session-action-btn {
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      height: 30px;
+      padding: 0 10px;
+      cursor: pointer;
+    }
+
+    .session-action-btn.rename {
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+
+    .session-action-btn.delete {
+      border: 1px solid #fecdd3;
+      background: #fff1f2;
+      color: #9f1239;
+    }
+
     .skill-pane {
       border-top: 1px solid var(--border);
       background: #eef6ff;
@@ -423,6 +532,7 @@
           <p id="sessionMeta" class="session-meta">Signed in</p>
         </div>
         <div class="header-actions">
+          <button id="sessionBtn" class="ghost-btn" type="button">Sessions</button>
           <button id="skillBtn" class="ghost-btn" type="button">Create Skill</button>
           <button id="logoutBtn" class="logout-btn" type="button">Logout</button>
         </div>
@@ -431,6 +541,15 @@
       <section id="chat" class="chat" aria-live="polite"></section>
 
       <section id="pendingPermissions" class="pending-pane hidden" aria-live="polite"></section>
+
+      <section id="sessionPane" class="session-pane hidden" aria-live="polite">
+        <p class="session-title">Sessions (Only your workspace)</p>
+        <div class="session-create">
+          <input id="sessionTitleInput" class="input" type="text" placeholder="Optional new session title" autocomplete="off">
+          <button id="createSessionBtn" class="action-btn" type="button">New</button>
+        </div>
+        <div id="sessionList" class="session-list"></div>
+      </section>
 
       <section id="skillPane" class="skill-pane hidden" aria-live="polite">
         <p class="skill-title">Create Skill From Free Text</p>
@@ -485,11 +604,16 @@
     const loginErrorEl = document.getElementById('loginError');
 
     const sessionMetaEl = document.getElementById('sessionMeta');
+    const sessionBtnEl = document.getElementById('sessionBtn');
     const skillBtnEl = document.getElementById('skillBtn');
     const logoutBtnEl = document.getElementById('logoutBtn');
 
     const chatEl = document.getElementById('chat');
     const pendingPermissionsEl = document.getElementById('pendingPermissions');
+    const sessionPaneEl = document.getElementById('sessionPane');
+    const sessionTitleInputEl = document.getElementById('sessionTitleInput');
+    const createSessionBtnEl = document.getElementById('createSessionBtn');
+    const sessionListEl = document.getElementById('sessionList');
     const skillPaneEl = document.getElementById('skillPane');
     const skillNameInputEl = document.getElementById('skillNameInput');
     const skillTextInputEl = document.getElementById('skillTextInput');
@@ -550,6 +674,9 @@
       chatEl.innerHTML = '';
       pendingPermissionsEl.innerHTML = '';
       pendingPermissionsEl.classList.add('hidden');
+      sessionPaneEl.classList.add('hidden');
+      sessionTitleInputEl.value = '';
+      sessionListEl.innerHTML = '';
       skillPaneEl.classList.add('hidden');
       skillNameInputEl.value = '';
       skillTextInputEl.value = '';
@@ -561,6 +688,7 @@
     }
 
     function openSkillPane() {
+      sessionPaneEl.classList.add('hidden');
       skillPaneEl.classList.remove('hidden');
       skillNameInputEl.focus();
     }
@@ -569,6 +697,245 @@
       skillPaneEl.classList.add('hidden');
       skillNameInputEl.value = '';
       skillTextInputEl.value = '';
+    }
+
+    function formatTime(epochMillis) {
+      if (!epochMillis) {
+        return 'unknown';
+      }
+      const date = new Date(epochMillis);
+      if (Number.isNaN(date.getTime())) {
+        return 'unknown';
+      }
+      return date.toLocaleString();
+    }
+
+    function renderSessionList(sessions) {
+      sessionListEl.innerHTML = '';
+      if (!Array.isArray(sessions) || sessions.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'session-item-meta';
+        empty.textContent = 'No sessions found in your workspace.';
+        sessionListEl.appendChild(empty);
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      sessions.forEach((session) => {
+        const card = document.createElement('article');
+        card.className = 'session-item';
+
+        const header = document.createElement('div');
+        header.className = 'session-item-header';
+
+        const title = document.createElement('p');
+        title.className = 'session-item-title';
+        title.textContent = session.title || session.id;
+        header.appendChild(title);
+
+        if (session.active) {
+          const activePill = document.createElement('span');
+          activePill.className = 'session-pill';
+          activePill.textContent = 'Active';
+          header.appendChild(activePill);
+        }
+
+        const meta = document.createElement('p');
+        meta.className = 'session-item-meta';
+        meta.textContent = `Updated: ${formatTime(session.updatedAt)} • ID: ${session.id}`;
+
+        card.appendChild(header);
+        card.appendChild(meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'session-item-actions';
+
+        if (!session.active) {
+          const selectBtn = document.createElement('button');
+          selectBtn.className = 'session-select-btn session-action-btn';
+          selectBtn.type = 'button';
+          selectBtn.textContent = 'Use this session';
+          selectBtn.setAttribute('data-session-id', session.id || '');
+          selectBtn.setAttribute('data-action', 'select');
+          actions.appendChild(selectBtn);
+        }
+
+        const renameBtn = document.createElement('button');
+        renameBtn.className = 'session-action-btn rename';
+        renameBtn.type = 'button';
+        renameBtn.textContent = 'Rename';
+        renameBtn.setAttribute('data-session-id', session.id || '');
+        renameBtn.setAttribute('data-session-title', session.title || '');
+        renameBtn.setAttribute('data-action', 'rename');
+        actions.appendChild(renameBtn);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'session-action-btn delete';
+        deleteBtn.type = 'button';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.setAttribute('data-session-id', session.id || '');
+        deleteBtn.setAttribute('data-action', 'delete');
+        actions.appendChild(deleteBtn);
+
+        card.appendChild(actions);
+
+        frag.appendChild(card);
+      });
+
+      sessionListEl.appendChild(frag);
+    }
+
+    async function fetchSessions() {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        return [];
+      }
+
+      const response = await fetch('/api/base66/sessions?limit=30', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        return [];
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to load sessions');
+      }
+
+      return response.json();
+    }
+
+    async function createSession(title) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch('/api/base66/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ title })
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to create session');
+      }
+
+      return response.json();
+    }
+
+    async function selectSession(sessionId) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`/api/base66/sessions/${encodeURIComponent(sessionId)}/select`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to select session');
+      }
+
+      const payload = await response.json();
+      return Boolean(payload.success);
+    }
+
+    async function renameSession(sessionId, title) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`/api/base66/sessions/${encodeURIComponent(sessionId)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ title })
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to rename session');
+      }
+
+      return response.json();
+    }
+
+    async function deleteSession(sessionId) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`/api/base66/sessions/${encodeURIComponent(sessionId)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to delete session');
+      }
+
+      const payload = await response.json();
+      return Boolean(payload.success);
+    }
+
+    async function refreshSessions() {
+      const sessions = await fetchSessions();
+      renderSessionList(sessions);
+      return sessions;
+    }
+
+    async function openSessionPane() {
+      closeSkillPane();
+      sessionPaneEl.classList.remove('hidden');
+      await refreshSessions();
+      sessionTitleInputEl.focus();
+    }
+
+    function closeSessionPane() {
+      sessionPaneEl.classList.add('hidden');
+      sessionTitleInputEl.value = '';
     }
 
     function renderPendingPermissions(permissions) {
@@ -947,6 +1314,102 @@
 
     logoutBtnEl.addEventListener('click', () => {
       logout('You have been logged out.');
+    });
+
+    sessionBtnEl.addEventListener('click', async () => {
+      if (sessionPaneEl.classList.contains('hidden')) {
+        try {
+          await openSessionPane();
+        } catch (_error) {
+          addMessage('Error: failed to load sessions.', 'error');
+        }
+        return;
+      }
+      closeSessionPane();
+    });
+
+    createSessionBtnEl.addEventListener('click', async () => {
+      const title = sessionTitleInputEl.value.trim();
+      createSessionBtnEl.disabled = true;
+      try {
+        const created = await createSession(title);
+        addMessage(`Switched to new session: ${created.title || created.id}`, 'bot');
+        sessionTitleInputEl.value = '';
+        await refreshSessions();
+      } catch (error) {
+        if (error.message !== 'Authentication required') {
+          addMessage(`Error: ${error.message}`, 'error');
+        }
+      } finally {
+        createSessionBtnEl.disabled = false;
+      }
+    });
+
+    sessionListEl.addEventListener('click', async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLButtonElement)) {
+        return;
+      }
+
+      const sessionId = target.getAttribute('data-session-id');
+      const action = target.getAttribute('data-action');
+      if (!sessionId || !action) {
+        return;
+      }
+
+      target.disabled = true;
+      try {
+        if (action === 'select') {
+          const success = await selectSession(sessionId);
+          if (!success) {
+            addMessage('Error: session does not belong to your workspace.', 'error');
+            return;
+          }
+          addMessage(`Switched active session to ${sessionId}`, 'bot');
+          await refreshSessions();
+          return;
+        }
+
+        if (action === 'rename') {
+          const currentTitle = target.getAttribute('data-session-title') || '';
+          const nextTitle = window.prompt('Rename session', currentTitle);
+          if (nextTitle === null) {
+            return;
+          }
+          const trimmedTitle = nextTitle.trim();
+          if (!trimmedTitle) {
+            addMessage('Error: session title cannot be empty.', 'error');
+            return;
+          }
+
+          const updated = await renameSession(sessionId, trimmedTitle);
+          addMessage(`Session renamed to ${updated.title || trimmedTitle}`, 'bot');
+          await refreshSessions();
+          return;
+        }
+
+        if (action === 'delete') {
+          const confirmed = window.confirm('Delete this session permanently?');
+          if (!confirmed) {
+            return;
+          }
+
+          const success = await deleteSession(sessionId);
+          if (!success) {
+            addMessage('Error: failed to delete session.', 'error');
+            return;
+          }
+
+          addMessage(`Deleted session ${sessionId}`, 'bot');
+          await refreshSessions();
+        }
+      } catch (error) {
+        if (error.message !== 'Authentication required') {
+          addMessage(`Error: ${error.message}`, 'error');
+        }
+      } finally {
+        target.disabled = false;
+      }
     });
 
     const existingToken = sessionStorage.getItem(TOKEN_KEY);
