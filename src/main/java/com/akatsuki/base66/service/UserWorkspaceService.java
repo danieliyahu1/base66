@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
@@ -288,7 +289,7 @@ public class UserWorkspaceService {
             ensureDirectory(opencodeDir.resolve(dirName));
         }
 
-        boolean rootConfigChanged = initializeOrUpdateRootOpencodeConfig(workspace.resolve("opencode.json"), username);
+        boolean rootConfigChanged = initializeOrUpdateRootOpencodeConfig(workspace.resolve("opencode.json"), workspace, username);
         boolean tuiChanged = initializeTuiConfigIfMissing(workspace.resolve("tui.json"));
         boolean agentsMdChanged = initializeAgentsGuide(workspace.resolve("AGENTS.md"), username);
         if (rootConfigChanged || tuiChanged || agentsMdChanged) {
@@ -296,8 +297,9 @@ public class UserWorkspaceService {
         }
     }
 
-    private boolean initializeOrUpdateRootOpencodeConfig(Path opencodeConfig, String username) {
+    private boolean initializeOrUpdateRootOpencodeConfig(Path opencodeConfig, Path workspace, String username) {
         try {
+            boolean configExisted = Files.exists(opencodeConfig);
             ObjectNode root = readOrCreateConfig(opencodeConfig);
             boolean changed = false;
             String requiredAgentName = getRequiredAgentName(username);
@@ -378,6 +380,69 @@ public class UserWorkspaceService {
             if (!expectedPrompt.equals(userAgentNode.path("prompt").asText(null))) {
                 userAgentNode.put("prompt", expectedPrompt);
                 changed = true;
+            }
+
+            // Bootstrap Playwright MCP for newly created user workspaces using isolated browser data.
+            if (!configExisted) {
+                ObjectNode mcpNode;
+                JsonNode existingMcpNode = root.get("mcp");
+                if (existingMcpNode instanceof ObjectNode existingObjectNode) {
+                    mcpNode = existingObjectNode;
+                } else {
+                    mcpNode = objectMapper.createObjectNode();
+                    root.set("mcp", mcpNode);
+                    changed = true;
+                }
+
+                String userDataDir = workspace.resolve(".browser-data").toString();
+                JsonNode existingPlaywrightNode = mcpNode.get("playwright");
+                if (!(existingPlaywrightNode instanceof ObjectNode existingPlaywrightObject)) {
+                    ObjectNode playwrightNode = objectMapper.createObjectNode();
+                    playwrightNode.put("type", "local");
+                    ArrayNode commandArray = playwrightNode.putArray("command");
+                    commandArray.add("npx");
+                    commandArray.add("-y");
+                    commandArray.add("@playwright/mcp@latest");
+                    commandArray.add("--user-data-dir");
+                    commandArray.add(userDataDir);
+                    playwrightNode.put("enabled", true);
+                    mcpNode.set("playwright", playwrightNode);
+                    changed = true;
+                } else {
+                    boolean playwrightChanged = false;
+
+                    if (!"local".equals(existingPlaywrightObject.path("type").asText(null))) {
+                        existingPlaywrightObject.put("type", "local");
+                        playwrightChanged = true;
+                    }
+
+                    JsonNode commandNode = existingPlaywrightObject.get("command");
+                    if (!(commandNode instanceof ArrayNode commandArrayNode)
+                        || commandArrayNode.size() != 5
+                        || !"npx".equals(commandArrayNode.path(0).asText(null))
+                        || !"-y".equals(commandArrayNode.path(1).asText(null))
+                        || !"@playwright/mcp@latest".equals(commandArrayNode.path(2).asText(null))
+                        || !"--user-data-dir".equals(commandArrayNode.path(3).asText(null))
+                        || !userDataDir.equals(commandArrayNode.path(4).asText(null))) {
+                        ArrayNode replacement = objectMapper.createArrayNode();
+                        replacement.add("npx");
+                        replacement.add("-y");
+                        replacement.add("@playwright/mcp@latest");
+                        replacement.add("--user-data-dir");
+                        replacement.add(userDataDir);
+                        existingPlaywrightObject.set("command", replacement);
+                        playwrightChanged = true;
+                    }
+
+                    if (!existingPlaywrightObject.path("enabled").asBoolean(false)) {
+                        existingPlaywrightObject.put("enabled", true);
+                        playwrightChanged = true;
+                    }
+
+                    if (playwrightChanged) {
+                        changed = true;
+                    }
+                }
             }
 
             if (!changed) {
