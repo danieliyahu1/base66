@@ -15,7 +15,7 @@ import org.springframework.validation.annotation.Validated;
 public class AuthProperties {
 
     @Valid
-    @Size(min = 2, max = 2, message = "Exactly two users must be configured")
+    @Size(min = 1, message = "At least one user must be configured")
     private List<AuthUser> users = new ArrayList<>();
 
     @NotBlank(message = "JWT secret is required")

@@ -8,7 +8,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class AuthService {
 
@@ -27,14 +29,21 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(request.username(), request.password())
-        );
+        log.info("Login attempt: username='{}' password='{}'", request.username(), request.password());
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.username(), request.password())
+            );
 
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        String token = jwtService.generateToken(userDetails);
-        String agentName = userWorkspaceService.getRequiredAgentName(userDetails.getUsername());
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            String token = jwtService.generateToken(userDetails);
+            String agentName = userWorkspaceService.getRequiredAgentName(userDetails.getUsername());
 
-        return new LoginResponse(userDetails.getUsername(), token, "Bearer", agentName);
+            log.info("Login success: username='{}' agent='{}'", userDetails.getUsername(), agentName);
+            return new LoginResponse(userDetails.getUsername(), token, "Bearer", agentName);
+        } catch (Exception ex) {
+            log.warn("Login failed for username='{}': {}", request.username(), ex.getMessage(), ex);
+            throw ex;
+        }
     }
 }

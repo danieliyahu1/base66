@@ -38,10 +38,21 @@ public class InMemoryAuthUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        log.info("User lookup: username='{}'", username);
         UserDetails userDetails = usersByUsername.get(username);
         if (userDetails == null) {
+            log.warn("User not found: username='{}'", username);
             throw new UsernameNotFoundException("Unknown user");
         }
-        return userDetails;
+        log.info("User found: username='{}'", username);
+        // Return a new UserDetails copy to prevent mutation issues
+        return User.withUsername(userDetails.getUsername())
+            .password(userDetails.getPassword())
+            .authorities(userDetails.getAuthorities())
+            .accountExpired(!userDetails.isAccountNonExpired())
+            .accountLocked(!userDetails.isAccountNonLocked())
+            .credentialsExpired(!userDetails.isCredentialsNonExpired())
+            .disabled(!userDetails.isEnabled())
+            .build();
     }
 }
