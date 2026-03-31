@@ -29,7 +29,7 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
-        log.info("Login attempt: username='{}' password='{}'", request.username(), request.password());
+        log.info("Login attempt: username='{}'", request.username());
         try {
             Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.username(), request.password())
