@@ -359,8 +359,10 @@ public class UserWorkspaceService {
                 userAgentNode.put("mode", "primary");
                 changed = true;
             }
-            if (!"allow".equals(userAgentNode.path("permission").asText(null))) {
-                userAgentNode.put("permission", "allow");
+            // Do not set agent-level permission — let the workspace-level permission config govern.
+            // Remove any previously set agent-level permission so it does not override workspace defaults.
+            if (userAgentNode.has("permission")) {
+                userAgentNode.remove("permission");
                 changed = true;
             }
 
