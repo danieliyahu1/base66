@@ -8,11 +8,15 @@ services:
     volumes:
       # Persist user workspaces across container restarts
       - base66-workspaces:/data/workspaces
+      # Global OpenCode config (opencode.json, skills/) — editable on host
+      - ./mounts/global-config:/home/base66/.config/opencode
+      # Per-user workspace OpenCode configs — editable on host
+      - ./mounts/user1-config/opencode.json:/data/workspaces/user1/opencode.json
+      - ./mounts/user2-config/opencode.json:/data/workspaces/user2/opencode.json
+      - ./mounts/atalya-config/opencode.json:/data/workspaces/atalya/opencode.json
       # Persist OpenCode internal data (sessions db, logs, auth)
-      - base66-opencode-config:/home/base66/.config/opencode
       - base66-opencode-data:/home/base66/.local/share/opencode
 
 volumes:
   base66-workspaces:
-  base66-opencode-config:
   base66-opencode-data:

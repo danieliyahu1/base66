@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "external_directory": "deny"
+  },
+  "default_agent": "atalya-agent",
+  "agent": {
+    "atalya-agent": {
+      "mode": "primary",
+      "description": "Dedicated Base66 agent for user atalya",
+      "prompt": "You are the dedicated Base66 agent for user atalya.\nUse all built-in tools when needed to complete tasks safely and accurately.\nUse both global and project skills when relevant.\nUse both global and project MCP integrations when relevant.\nRespect global and project configuration while operating in this workspace."
+    }
+  },
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp@latest", "--user-data-dir", "/data/workspaces/atalya/.browser-data"],
+      "enabled": true
+    }
+  }
+}
