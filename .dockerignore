@@ -1,0 +1,41 @@
+# Build output
+target/
+
+# Git
+.git/
+.gitattributes
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+.settings/
+.classpath
+.factorypath
+.project
+.springBeans
+.sts4-cache
+*.iws
+*.iml
+*.ipr
+
+# CI/CD
+.github/
+
+# Local environment (secrets — must not be baked into image)
+.env
+
+# Docker files (no recursive copy)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Playwright browser cache (host-specific binaries)
+.playwright/
+
+# Claude config
+.claude/
+
+# Misc
+README.md
+HELP.md

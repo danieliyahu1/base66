@@ -1,0 +1,18 @@
+services:
+  base66:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      # Persist user workspaces across container restarts
+      - base66-workspaces:/data/workspaces
+      # Persist OpenCode internal data (sessions db, logs, auth)
+      - base66-opencode-config:/home/base66/.config/opencode
+      - base66-opencode-data:/home/base66/.local/share/opencode
+
+volumes:
+  base66-workspaces:
+  base66-opencode-config:
+  base66-opencode-data:
