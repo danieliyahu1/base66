@@ -37,7 +37,7 @@
 
     .shell {
       width: min(960px, 100%);
-      min-height: min(760px, calc(100vh - 40px));
+      height: min(760px, calc(100vh - 40px));
       border: 1px solid var(--border);
       border-radius: 18px;
       background: var(--panel);
@@ -48,6 +48,7 @@
 
     .view {
       height: 100%;
+      overflow: hidden;
     }
 
     .hidden {
@@ -144,7 +145,8 @@
 
     .chat-view {
       display: grid;
-      grid-template-rows: auto 1fr auto;
+      grid-template-rows: auto 1fr auto auto auto auto;
+      overflow: hidden;
     }
 
     .chat-header {
@@ -488,7 +490,7 @@
       }
 
       .shell {
-        min-height: calc(100vh - 16px);
+        height: calc(100vh - 16px);
         border-radius: 14px;
       }
 
