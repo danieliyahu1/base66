@@ -289,6 +289,8 @@ public class UserWorkspaceService {
             ensureDirectory(opencodeDir.resolve(dirName));
         }
 
+        initializeGitRepoIfMissing(workspace);
+
         boolean rootConfigChanged = initializeOrUpdateRootOpencodeConfig(workspace.resolve("opencode.json"), workspace, username);
         boolean tuiChanged = initializeTuiConfigIfMissing(workspace.resolve("tui.json"));
         boolean agentsMdChanged = initializeAgentsGuide(workspace.resolve("AGENTS.md"), username);
@@ -511,6 +513,31 @@ public class UserWorkspaceService {
             "- Respect global and project configuration.",
             ""
         ));
+    }
+
+    private void initializeGitRepoIfMissing(Path workspace) {
+        Path gitDir = workspace.resolve(".git");
+        if (Files.exists(gitDir)) {
+            return;
+        }
+        try {
+            ProcessBuilder pb = new ProcessBuilder("git", "init");
+            pb.directory(workspace.toFile());
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                log.warn("git init failed in workspace {} exitCode={} output={}", workspace, exitCode, output);
+            } else {
+                log.info("Initialized git repository in workspace {}", workspace);
+            }
+        } catch (IOException | InterruptedException e) {
+            log.warn("Failed to run git init in workspace {}", workspace, e);
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     private ObjectNode readOrCreateConfig(Path opencodeConfig) throws IOException {
