@@ -37,3 +37,4 @@ build/
 
 ### Local env ###
 .env
+.opencode/
