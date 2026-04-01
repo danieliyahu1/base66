@@ -229,7 +229,7 @@ public class UserWorkspaceService {
             throw new IllegalStateException("Failed to write skill file", e);
         }
 
-        log.info("Skill updated successfully. user={} skill={}", safeUsername, safeSkillName);
+        log.info("Skill updated: user='{}' skill='{}'", safeUsername, safeSkillName);
 
         return new SkillDetailResponse(preservedName, trimmedDescription, trimmedContent);
     }
@@ -270,7 +270,7 @@ public class UserWorkspaceService {
             throw new IllegalStateException("Failed to write skill file", e);
         }
 
-        log.info("Skill created successfully. user={} skill={}", safeUsername, safeSkillName);
+        log.info("Skill created: user='{}' skill='{}'", safeUsername, safeSkillName);
 
         return new SkillDetailResponse(safeSkillName, trimmedDescription, trimmedContent);
     }
@@ -354,7 +354,7 @@ public class UserWorkspaceService {
         try {
             Files.deleteIfExists(skillFile);
             Files.deleteIfExists(skillDir);
-            log.info("Skill deleted successfully. user={} skill={}", safeUsername, safeSkillName);
+            log.info("Skill deleted: user='{}' skill='{}'", safeUsername, safeSkillName);
             return true;
         } catch (IOException e) {
             log.error("Failed to delete skill. user={} skill={}", safeUsername, safeSkillName, e);
@@ -394,7 +394,7 @@ public class UserWorkspaceService {
         boolean tuiChanged = initializeTuiConfigIfMissing(workspace.resolve("tui.json"));
         boolean agentsMdChanged = initializeAgentsGuide(workspace.resolve("AGENTS.md"), username);
         if (rootConfigChanged || tuiChanged || agentsMdChanged) {
-            log.info("Initialized per-user OpenCode config structure in workspace {}", workspace);
+            log.debug("Initialized OpenCode config structure in workspace={}", workspace);
         }
     }
 
@@ -627,9 +627,9 @@ public class UserWorkspaceService {
             int exitCode = process.waitFor();
             if (exitCode != 0) {
                 String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                log.warn("git init failed in workspace {} exitCode={} output={}", workspace, exitCode, output);
+                log.warn("git init failed in workspace={} exitCode={} output={}", workspace, exitCode, output);
             } else {
-                log.info("Initialized git repository in workspace {}", workspace);
+                log.debug("Initialized git repository in workspace={}", workspace);
             }
         } catch (IOException | InterruptedException e) {
             log.warn("Failed to run git init in workspace {}", workspace, e);

@@ -8,9 +8,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import javax.crypto.SecretKey;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class JwtService {
 
@@ -24,12 +26,14 @@ public class JwtService {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(authProperties.getJwtExpirationSeconds());
 
-        return Jwts.builder()
+        String token = Jwts.builder()
             .subject(userDetails.getUsername())
             .issuedAt(Date.from(now))
             .expiration(Date.from(expiry))
             .signWith(getSigningKey())
             .compact();
+        log.debug("JWT generated for user='{}'", userDetails.getUsername());
+        return token;
     }
 
     public String extractUsername(String token) {
@@ -44,8 +48,13 @@ public class JwtService {
     public boolean isTokenValid(String token, UserDetails userDetails) {
         try {
             String username = extractUsername(token);
-            return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+            boolean valid = username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+            if (!valid) {
+                log.debug("JWT validation failed for user='{}'", userDetails.getUsername());
+            }
+            return valid;
         } catch (JwtException | IllegalArgumentException ex) {
+            log.warn("JWT parsing error: {}", ex.getMessage());
             return false;
         }
     }

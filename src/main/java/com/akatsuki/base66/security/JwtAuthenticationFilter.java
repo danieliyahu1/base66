@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+@Slf4j
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -43,6 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(BEARER_PREFIX.length()).trim();
         if (!StringUtils.hasText(token)) {
+            log.warn("Empty Bearer token received for {} {}", request.getMethod(), request.getRequestURI());
             filterChain.doFilter(request, response);
             return;
         }
@@ -51,6 +54,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             username = jwtService.extractUsername(token);
         } catch (Exception ex) {
+            log.warn("JWT validation failed for {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
             filterChain.doFilter(request, response);
             return;
         }
@@ -62,6 +66,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                log.debug("Authenticated user='{}' for {} {}", username, request.getMethod(), request.getRequestURI());
+            } else {
+                log.warn("Invalid or expired JWT for user='{}' on {} {}", username, request.getMethod(), request.getRequestURI());
             }
         }
 

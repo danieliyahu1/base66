@@ -277,7 +277,7 @@ public class OpenCodeProcessService {
             )) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    log.info("[opencode] {}", line);
+                    log.debug("[opencode] {}", line);
                 }
             } catch (IOException e) {
                 log.debug("Stopped reading OpenCode process output", e);

@@ -34,23 +34,23 @@ public class UserWorkspaceController {
     @GetMapping
     public List<SkillSummaryResponse> list() {
         String username = resolveAuthenticatedUsername();
-        log.info("Skill list requested by user='{}'", username);
+        log.info("GET /api/base66/skills requested by user='{}'", username);
         List<SkillSummaryResponse> skills = userWorkspaceService.listSkills(username);
-        log.info("Skill list returned {} skills for user='{}'", skills.size(), username);
+        log.debug("Skill list returned {} skills for user='{}'", skills.size(), username);
         return skills;
     }
 
     @GetMapping("/{skillName}")
     public SkillDetailResponse get(@PathVariable String skillName) {
         String username = resolveAuthenticatedUsername();
-        log.info("Skill detail requested by user='{}' skill='{}'", username, skillName);
+        log.info("GET /api/base66/skills/{} requested by user='{}'", skillName, username);
         return userWorkspaceService.getSkillContent(username, skillName);
     }
 
     @PostMapping
     public SkillDetailResponse create(@Valid @RequestBody CreateSkillRequest request) {
         String username = resolveAuthenticatedUsername();
-        log.info("Skill creation requested by user='{}' skill='{}'", username, request.skillName());
+        log.info("POST /api/base66/skills requested by user='{}' skill='{}'", username, request.skillName());
         return userWorkspaceService.createSkill(username, request.skillName(), request.description(), request.content());
     }
 
@@ -58,14 +58,14 @@ public class UserWorkspaceController {
     public SkillDetailResponse update(@PathVariable String skillName,
                                       @Valid @RequestBody UpdateSkillRequest request) {
         String username = resolveAuthenticatedUsername();
-        log.info("Skill update requested by user='{}' skill='{}'", username, skillName);
+        log.info("PUT /api/base66/skills/{} requested by user='{}'", skillName, username);
         return userWorkspaceService.updateSkill(username, skillName, request.description(), request.content());
     }
 
     @DeleteMapping("/{skillName}")
     public Map<String, Boolean> delete(@PathVariable String skillName) {
         String username = resolveAuthenticatedUsername();
-        log.info("Skill delete requested by user='{}' skill='{}'", username, skillName);
+        log.info("DELETE /api/base66/skills/{} requested by user='{}'", skillName, username);
         boolean success = userWorkspaceService.deleteSkill(username, skillName);
         return Map.of("success", success);
     }

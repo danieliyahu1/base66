@@ -23,7 +23,7 @@ public class UserWorkspaceProvisioningService {
     public Path ensureWorkspaceReady(String username) {
         try {
             Path workspace = userWorkspaceService.getUserWorkspace(username);
-            log.info("Workspace ready for user={} path={}", username, workspace);
+            log.debug("Workspace ready for user='{}' path={}", username, workspace);
             return workspace;
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to prepare workspace for user=" + username, ex);

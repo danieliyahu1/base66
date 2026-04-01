@@ -38,7 +38,7 @@ public class SessionController {
     @GetMapping
     public List<SessionResponse> list(@RequestParam(defaultValue = "20") int limit) {
         String username = resolveAuthenticatedUsername();
-        log.info("Session list requested by user='{}' with limit={}", username, limit);
+        log.info("GET /api/base66/sessions requested by user='{}'", username);
         int effectiveLimit = Math.max(1, Math.min(limit, 100));
         List<SessionResponse> sessions = openCodeChatModel.listSessions(username, effectiveLimit).stream()
             .map(session -> new SessionResponse(
@@ -48,7 +48,7 @@ public class SessionController {
                 session.updatedAt(),
                 session.active()))
             .toList();
-        log.info("Session list returned {} sessions for user='{}'", sessions.size(), username);
+        log.debug("Session list returned {} sessions for user='{}'", sessions.size(), username);
         return sessions;
     }
 
@@ -56,9 +56,9 @@ public class SessionController {
     public SessionResponse create(@RequestBody(required = false) CreateSessionRequest request) {
         String username = resolveAuthenticatedUsername();
         String title = request == null ? null : request.title();
-        log.info("Session create requested by user='{}' with title='{}'", username, title);
+        log.info("POST /api/base66/sessions requested by user='{}'", username);
         OpenCodeChatModel.OpenCodeSessionInfo session = openCodeChatModel.createSession(username, title);
-        log.info("Session created: id='{}' title='{}' for user='{}'", session.id(), session.title(), username);
+        log.debug("Session created: id='{}' title='{}' for user='{}'", session.id(), session.title(), username);
         return new SessionResponse(
             session.id(),
             session.title(),
@@ -70,23 +70,23 @@ public class SessionController {
     @PostMapping("/{sessionId}/select")
     public SessionSelectResponse select(@PathVariable String sessionId) {
         String username = resolveAuthenticatedUsername();
-        log.info("Session select requested by user='{}' for sessionId='{}'", username, sessionId);
+        log.info("POST /api/base66/sessions/{}/select requested by user='{}'", sessionId, username);
         boolean success = openCodeChatModel.selectSession(username, sessionId);
-        log.info("Session select result for user='{}' sessionId='{}': {}", username, sessionId, success);
+        log.debug("Session select result for user='{}' sessionId='{}': success={}", username, sessionId, success);
         return new SessionSelectResponse(success);
     }
 
     @PatchMapping("/{sessionId}")
     public SessionResponse rename(@PathVariable String sessionId, @RequestBody RenameSessionRequest request) {
         if (request == null || request.title() == null || request.title().isBlank()) {
-            log.warn("Session rename failed: missing title for sessionId='{}'", sessionId);
+            log.warn("Session rename rejected: missing title for sessionId='{}'", sessionId);
             throw new IllegalArgumentException("title is required");
         }
 
         String username = resolveAuthenticatedUsername();
-        log.info("Session rename requested by user='{}' for sessionId='{}' to title='{}'", username, sessionId, request.title());
+        log.info("PATCH /api/base66/sessions/{} requested by user='{}'", sessionId, username);
         OpenCodeChatModel.OpenCodeSessionInfo session = openCodeChatModel.renameSession(username, sessionId, request.title());
-        log.info("Session renamed: id='{}' newTitle='{}' for user='{}'", session.id(), session.title(), username);
+        log.debug("Session renamed: id='{}' newTitle='{}' for user='{}'", session.id(), session.title(), username);
         return new SessionResponse(
             session.id(),
             session.title(),
@@ -98,9 +98,9 @@ public class SessionController {
     @DeleteMapping("/{sessionId}")
     public SessionSelectResponse delete(@PathVariable String sessionId) {
         String username = resolveAuthenticatedUsername();
-        log.info("Session delete requested by user='{}' for sessionId='{}'", username, sessionId);
+        log.info("DELETE /api/base66/sessions/{} requested by user='{}'", sessionId, username);
         boolean success = openCodeChatModel.deleteSession(username, sessionId);
-        log.info("Session delete result for user='{}' sessionId='{}': {}", username, sessionId, success);
+        log.debug("Session delete result for user='{}' sessionId='{}': success={}", username, sessionId, success);
         return new SessionSelectResponse(success);
     }
 

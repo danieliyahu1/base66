@@ -26,14 +26,14 @@ public class Base66ChatService {
         }
 
         String safeMessage = Objects.requireNonNull(message, "message is required").trim();
-        log.info("User -> OpenCode: {}", previewForLog(safeMessage));
-        log.info("Sending message to OpenCode. length={}", safeMessage.length());
+        log.info("Sending chat message to OpenCode, length={}", safeMessage.length());
+        log.debug("User -> OpenCode: {}", previewForLog(safeMessage));
         String response = chatClient.prompt()
             .user(safeMessage)
             .call()
             .content();
-        log.info("OpenCode -> User: {}", previewForLog(response));
-        log.info("Received response from OpenCode. length={}", response == null ? 0 : response.length());
+        log.info("Received chat response from OpenCode, length={}", response == null ? 0 : response.length());
+        log.debug("OpenCode -> User: {}", previewForLog(response));
         return response;
     }
 

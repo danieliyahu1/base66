@@ -21,13 +21,13 @@ public class ChatClientConfig {
         @Value("${opencode.session-ttl-seconds:1800}") long sessionTtlSeconds,
         UserWorkspaceService userWorkspaceService
     ) {
-        log.info("Initializing OpenCode ChatModel with base URL {}", baseUrl);
+        log.info("Initializing OpenCode ChatModel with baseUrl={}", baseUrl);
         return new OpenCodeChatModel(baseUrl, userWorkspaceService, sessionTtlSeconds);
     }
 
     @Bean
     public ChatClient chatClient(ChatModel chatModel) {
-        log.info("Creating ChatClient bean");
+        log.debug("Creating ChatClient bean");
         return ChatClient.builder(Objects.requireNonNull(chatModel, "chatModel is required")).build();
     }
 }

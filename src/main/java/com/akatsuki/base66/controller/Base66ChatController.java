@@ -23,9 +23,9 @@ public class Base66ChatController {
 
     @PostMapping("/chat")
     public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
-        log.info("Incoming /api/base66/chat request");
+        log.info("POST /api/base66/chat request received");
         String content = base66ChatService.chat(request.message());
-        log.info("Returning chat response");
+        log.debug("Chat response generated, length={}", content == null ? 0 : content.length());
         return new ChatResponse(content);
     }
 }

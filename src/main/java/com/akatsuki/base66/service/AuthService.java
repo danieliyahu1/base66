@@ -29,7 +29,7 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
-        log.info("Login attempt: username='{}'", request.username());
+        log.debug("Login attempt for username='{}'", request.username());
         try {
             Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.username(), request.password())
@@ -39,10 +39,10 @@ public class AuthService {
             String token = jwtService.generateToken(userDetails);
             String agentName = userWorkspaceService.getRequiredAgentName(userDetails.getUsername());
 
-            log.info("Login success: username='{}' agent='{}'", userDetails.getUsername(), agentName);
+            log.info("Login successful for username='{}'", userDetails.getUsername());
             return new LoginResponse(userDetails.getUsername(), token, "Bearer", agentName);
         } catch (Exception ex) {
-            log.warn("Login failed for username='{}': {}", request.username(), ex.getMessage(), ex);
+            log.warn("Login failed for username='{}': {}", request.username(), ex.getMessage());
             throw ex;
         }
     }

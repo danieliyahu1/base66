@@ -41,14 +41,14 @@ public class OpenCodeChatModel implements ChatModel {
         this.userWorkspaceService = userWorkspaceService;
         long effectiveTtlSeconds = Math.max(MIN_TTL_SECONDS, sessionTtlSeconds);
         this.sessionTtlMillis = effectiveTtlSeconds * 1000;
-        log.info("OpenCodeChatModel created for baseUrl={} sessionTtlSeconds={}", baseUrl, effectiveTtlSeconds);
+        log.info("OpenCodeChatModel created with baseUrl={}", baseUrl);
     }
 
     private SessionEntry initSession(String username) {
         Scope scope = scopeForUser(username);
         applyUserWorkspaceConfig(scope, username);
         assertRequiredAgentConfigured(username);
-        log.info("Initializing OpenCode session for user={}", username);
+        log.debug("Initializing OpenCode session for user='{}'", username);
 
         Map<String, Object> sessionRequest = new LinkedHashMap<>();
         sessionRequest.put("title", "Base66-" + username);
@@ -63,7 +63,7 @@ public class OpenCodeChatModel implements ChatModel {
         if (response != null && response.containsKey("id")) {
             String sessionId = response.get("id").toString();
             verifyScopedPath(scope);
-            log.info("OpenCode session initialized for user={} id={}", username, sessionId);
+            log.info("OpenCode session initialized for user='{}' sessionId='{}'", username, sessionId);
             return new SessionEntry(sessionId, System.currentTimeMillis());
         }
 
@@ -85,7 +85,7 @@ public class OpenCodeChatModel implements ChatModel {
         assertRequiredAgentConfigured(username);
         String sessionId = getOrCreateSessionId(username);
 
-        log.info("Streaming chat request to OpenCode. length={}", userText == null ? 0 : userText.length());
+        log.debug("Streaming chat request to OpenCode, length={}", userText == null ? 0 : userText.length());
         var requestPayload = new OpenCodePromptRequest(List.of(new TextPartInput(userText)), requiredAgentName);
 
         return webClient.post()
@@ -147,7 +147,7 @@ public class OpenCodeChatModel implements ChatModel {
                 .block();
         } catch (WebClientResponseException ex) {
             if (ex.getStatusCode().value() == 404) {
-                log.warn("OpenCode server does not support /permission endpoint yet");
+                log.warn("OpenCode /permission endpoint not supported (404)");
                 return List.of();
             }
             throw ex;

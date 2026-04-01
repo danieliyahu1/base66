@@ -38,13 +38,13 @@ public class InMemoryAuthUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        log.info("User lookup: username='{}'", username);
+        log.debug("User lookup: username='{}'", username);
         UserDetails userDetails = usersByUsername.get(username);
         if (userDetails == null) {
             log.warn("User not found: username='{}'", username);
             throw new UsernameNotFoundException("Unknown user");
         }
-        log.info("User found: username='{}'", username);
+        log.debug("User found: username='{}'", username);
         // Return a new UserDetails copy to prevent mutation issues
         return User.withUsername(userDetails.getUsername())
             .password(userDetails.getPassword())

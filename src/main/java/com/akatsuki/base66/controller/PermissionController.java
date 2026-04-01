@@ -49,14 +49,15 @@ public class PermissionController {
             String requestId = permission.getId();
             if (requestId != null && LOGGED_PENDING_REQUESTS.add(requestId)) {
                 log.info(
-                    "OpenCode permission requested. user={} requestId={} permission={} patterns={}",
+                    "New pending permission detected for user='{}' requestId='{}' permission='{}'",
                     username,
                     requestId,
-                    permission.getPermission(),
-                    permission.getPatterns()
+                    permission.getPermission()
                 );
             }
         }
+
+        log.debug("Returning {} pending permissions for user='{}'", permissions.size(), username);
 
         return permissions.stream()
             .map(permission -> new PendingPermissionResponse(
@@ -82,10 +83,10 @@ public class PermissionController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Permission request does not belong to this user");
         }
 
-        log.info("Replying to pending permission request. user={} requestId={} reply={}", username, requestId, reply);
+        log.info("POST /api/base66/permissions/{}/reply by user='{}' reply='{}'", requestId, username, reply);
         boolean success = openCodeChatModel.replyPermission(username, requestId, reply);
         LOGGED_PENDING_REQUESTS.remove(requestId);
-        log.info("Permission reply result. user={} requestId={} success={}", username, requestId, success);
+        log.debug("Permission reply result for user='{}' requestId='{}': success={}", username, requestId, success);
         return new PermissionReplyResponse(success);
     }
 
