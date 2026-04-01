@@ -1,6 +1,5 @@
 package com.akatsuki.base66.service;
 
-import com.akatsuki.base66.dto.CreateSkillFromTextResponse;
 import com.akatsuki.base66.dto.SkillDetailResponse;
 import com.akatsuki.base66.dto.SkillSummaryResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,10 +48,6 @@ public class UserWorkspaceService {
         "tools",
         "themes"
     );
-    private static final Pattern SKILL_PATH_PATTERN = Pattern.compile("(?m)^SKILL_PATH:\\s*(\\S+)\\s*$");
-    private static final Pattern SAFE_SKILL_FILE_PATTERN =
-        Pattern.compile("^\\.opencode/skills/[a-zA-Z0-9._-]+/SKILL\\.md$");
-
     private final Path workspacesRoot;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -239,6 +234,47 @@ public class UserWorkspaceService {
         return new SkillDetailResponse(preservedName, trimmedDescription, trimmedContent);
     }
 
+    public SkillDetailResponse createSkill(String username, String skillName, String description, String content) {
+        String safeUsername = sanitizeUsername(username);
+        String safeSkillName = validateSkillName(skillName);
+
+        if (!StringUtils.hasText(description)) {
+            throw new IllegalArgumentException("description is required");
+        }
+        if (!StringUtils.hasText(content)) {
+            throw new IllegalArgumentException("content is required");
+        }
+
+        Path workspace = getUserWorkspace(safeUsername);
+        Path skillDir = workspace.resolve(".opencode").resolve("skills").resolve(safeSkillName).normalize();
+        Path skillFile = skillDir.resolve("SKILL.md").normalize();
+
+        if (!skillFile.startsWith(workspace)) {
+            throw new IllegalArgumentException("Invalid skill name");
+        }
+
+        if (Files.isRegularFile(skillFile)) {
+            throw new IllegalArgumentException("Skill already exists: " + safeSkillName);
+        }
+
+        ensureDirectory(skillDir);
+
+        String trimmedDescription = description.trim();
+        String trimmedContent = content.trim();
+
+        String fileContent = "---\nname: " + safeSkillName + "\ndescription: " + trimmedDescription + "\n---\n\n" + trimmedContent + "\n";
+
+        try {
+            Files.writeString(skillFile, fileContent, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to write skill file", e);
+        }
+
+        log.info("Skill created successfully. user={} skill={}", safeUsername, safeSkillName);
+
+        return new SkillDetailResponse(safeSkillName, trimmedDescription, trimmedContent);
+    }
+
     private String extractFrontmatterValue(String content, String key) {
         if (!StringUtils.hasText(content) || !content.startsWith("---")) {
             return null;
@@ -256,91 +292,6 @@ public class UserWorkspaceService {
             return matcher.group(1);
         }
         return null;
-    }
-
-    public String buildSkillCreationPrompt(String skillName, String freeText) {
-        String safeSkillName = validateSkillName(skillName);
-        String safeText = validateSkillText(freeText);
-        String expectedPath = toSkillRelativePath(safeSkillName);
-        return String.join("\n", List.of(
-            "You are operating inside the current workspace.",
-            "Create exactly one skill file from the user content.",
-            "Requirements:",
-            "1) Use the provided skill name exactly as-is. Do not rename it.",
-            "2) Write the file ONLY at " + expectedPath,
-            "3) The file must include valid SKILL.md frontmatter and body.",
-            "4) Set frontmatter `name` to the provided skill name.",
-            "5) Generate ONLY the `description` frontmatter value from the user content.",
-            "6) Keep the skill body aligned with the user-provided content.",
-            "7) Do not create any other file.",
-            "8) After writing the file, reply with one line only in this exact format:",
-            "SKILL_PATH: " + expectedPath,
-            "Provided skill name:",
-            safeSkillName,
-            "User free-text content:",
-            safeText
-        ));
-    }
-
-    public CreateSkillFromTextResponse verifySkillCreationResult(String username, String skillName, String modelResponse) {
-        String safeUsername = sanitizeUsername(username);
-        String safeSkillName = validateSkillName(skillName);
-        String expectedPath = toSkillRelativePath(safeSkillName);
-        String skillPath = extractSkillPath(modelResponse);
-
-        if (!StringUtils.hasText(skillPath)) {
-            log.warn("Skill creation failed. user={} reason=missing_skill_path", safeUsername);
-            return new CreateSkillFromTextResponse(
-                false,
-                null,
-                "Skill creation failed. OpenCode did not return a skill path."
-            );
-        }
-
-        if (!SAFE_SKILL_FILE_PATTERN.matcher(skillPath).matches()) {
-            log.warn("Skill creation failed. user={} path={} reason=unsafe_path", safeUsername, skillPath);
-            return new CreateSkillFromTextResponse(
-                false,
-                null,
-                "Skill creation failed. OpenCode returned an invalid skill path."
-            );
-        }
-
-        if (!expectedPath.equals(skillPath)) {
-            log.warn(
-                "Skill creation failed. user={} expectedPath={} actualPath={} reason=path_mismatch",
-                safeUsername,
-                expectedPath,
-                skillPath
-            );
-            return new CreateSkillFromTextResponse(
-                false,
-                null,
-                "Skill creation failed. OpenCode returned a path that does not match the requested skill name."
-            );
-        }
-
-        try {
-            String content = readUserConfigFile(safeUsername, expectedPath);
-            if (!isValidSkillFileContent(content, safeSkillName)) {
-                log.warn("Skill creation failed. user={} path={} reason=invalid_content", safeUsername, skillPath);
-                return new CreateSkillFromTextResponse(
-                    false,
-                    null,
-                    "Skill creation failed. Generated SKILL.md content is invalid or missing required frontmatter."
-                );
-            }
-
-            log.info("Skill created successfully. user={} path={}", safeUsername, skillPath);
-            return new CreateSkillFromTextResponse(true, skillPath, "Skill created successfully.");
-        } catch (IllegalArgumentException ex) {
-            log.warn("Skill creation failed. user={} path={} reason=file_missing", safeUsername, skillPath);
-            return new CreateSkillFromTextResponse(
-                false,
-                null,
-                "Skill creation failed. OpenCode did not create SKILL.md in workspace."
-            );
-        }
     }
 
     private Path resolveUserConfigPath(String username, String relativePath) {
@@ -373,13 +324,6 @@ public class UserWorkspaceService {
         return resolved;
     }
 
-    private String validateSkillText(String freeText) {
-        if (!StringUtils.hasText(freeText)) {
-            throw new IllegalArgumentException("content is required");
-        }
-        return freeText.trim();
-    }
-
     private String validateSkillName(String skillName) {
         if (!StringUtils.hasText(skillName)) {
             throw new IllegalArgumentException("skillName is required");
@@ -390,22 +334,6 @@ public class UserWorkspaceService {
             throw new IllegalArgumentException("skillName contains unsupported characters");
         }
         return trimmed;
-    }
-
-    private String toSkillRelativePath(String skillName) {
-        return ".opencode/skills/" + skillName + "/SKILL.md";
-    }
-
-    private boolean isValidSkillFileContent(String content, String expectedSkillName) {
-        if (!StringUtils.hasText(content) || !content.contains("---")) {
-            return false;
-        }
-
-        Pattern namePattern = Pattern.compile(
-            "(?m)^name:\\s*\"?" + Pattern.quote(expectedSkillName) + "\"?\\s*$"
-        );
-        Pattern descriptionPattern = Pattern.compile("(?m)^description:\\s*.+$");
-        return namePattern.matcher(content).find() && descriptionPattern.matcher(content).find();
     }
 
     public boolean deleteSkill(String username, String skillName) {
@@ -432,19 +360,6 @@ public class UserWorkspaceService {
             log.error("Failed to delete skill. user={} skill={}", safeUsername, safeSkillName, e);
             throw new IllegalStateException("Failed to delete skill", e);
         }
-    }
-
-    private String extractSkillPath(String response) {
-        if (!StringUtils.hasText(response)) {
-            return null;
-        }
-
-        Matcher matcher = SKILL_PATH_PATTERN.matcher(response);
-        if (!matcher.find()) {
-            return null;
-        }
-
-        return matcher.group(1).trim().replace('\\', '/');
     }
 
     private String sanitizeUsername(String username) {

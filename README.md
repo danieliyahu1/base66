@@ -112,9 +112,22 @@ curl -X POST http://localhost:8080/api/auth/login \
 
 ### Skills
 
-- `POST /api/base66/skills/from-text`
-  - Request: `{ "skillName": "...", "content": "..." }`
-  - Response: `{ "success": true|false, "path": "...", "message": "..." }`
+- `GET /api/base66/skills`
+  - Response: `[{ "name": "...", "description": "..." }, ...]`
+
+- `GET /api/base66/skills/{skillName}`
+  - Response: `{ "name": "...", "description": "...", "content": "..." }`
+
+- `POST /api/base66/skills`
+  - Request: `{ "skillName": "...", "description": "...", "content": "..." }`
+  - Response: `{ "name": "...", "description": "...", "content": "..." }`
+
+- `PUT /api/base66/skills/{skillName}`
+  - Request: `{ "description": "...", "content": "..." }`
+  - Response: `{ "name": "...", "description": "...", "content": "..." }`
+
+- `DELETE /api/base66/skills/{skillName}`
+  - Response: `{ "success": true|false }`
 
 ## Error Behavior
 

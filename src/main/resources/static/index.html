@@ -819,13 +819,21 @@
         <div id="skillList" class="skill-list"></div>
         <hr class="skill-divider">
         <p class="skill-title">Create New Skill</p>
-        <p class="skill-hint">Provide a name and describe what the skill should do. The agent will create it for you.</p>
+        <p class="skill-hint">Provide a name, description, and content for the skill.</p>
         <label class="field-label" for="skillNameInput">Skill name</label>
         <input
           id="skillNameInput"
           class="input"
           type="text"
           placeholder="example: java-controller-guardrails"
+          autocomplete="off"
+        >
+        <label class="field-label" for="skillDescInput">Description</label>
+        <input
+          id="skillDescInput"
+          class="input"
+          type="text"
+          placeholder="example: Reviews Java controllers for auth and validation issues"
           autocomplete="off"
         >
         <label class="field-label" for="skillTextInput">Skill content</label>
@@ -936,6 +944,7 @@
     const skillPaneEl = document.getElementById('skillPane');
     const skillListEl = document.getElementById('skillList');
     const skillNameInputEl = document.getElementById('skillNameInput');
+    const skillDescInputEl = document.getElementById('skillDescInput');
     const skillTextInputEl = document.getElementById('skillTextInput');
     const submitSkillBtnEl = document.getElementById('submitSkillBtn');
     const cancelSkillBtnEl = document.getElementById('cancelSkillBtn');
@@ -1013,6 +1022,7 @@
       skillPaneEl.classList.add('hidden');
       skillListEl.innerHTML = '';
       skillNameInputEl.value = '';
+      skillDescInputEl.value = '';
       skillTextInputEl.value = '';
       closeSkillModal();
       if (permissionPollTimer) {
@@ -1036,6 +1046,7 @@
     function closeSkillPane() {
       skillPaneEl.classList.add('hidden');
       skillNameInputEl.value = '';
+      skillDescInputEl.value = '';
       skillTextInputEl.value = '';
     }
 
@@ -1656,20 +1667,20 @@
       return data.response || '';
     }
 
-    async function createSkillFromText(skillName, content) {
+    async function createSkill(skillName, description, content) {
       const token = readToken();
       if (!token) {
         logout('Your session was not found. Please sign in again.');
         throw new Error('Not authenticated');
       }
 
-      const response = await fetch(apiUrl('/api/base66/skills/from-text'), {
+      const response = await fetch(apiUrl('/api/base66/skills'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ skillName, content })
+        body: JSON.stringify({ skillName, description, content })
       });
 
       if (response.status === 401) {
@@ -1926,30 +1937,30 @@
 
     submitSkillBtnEl.addEventListener('click', async () => {
       const skillName = skillNameInputEl.value.trim();
-      const freeText = skillTextInputEl.value.trim();
+      const description = skillDescInputEl.value.trim();
+      const content = skillTextInputEl.value.trim();
       if (!skillName) {
         addMessage('Error: skill name is required.', 'error');
         return;
       }
-      if (!freeText) {
+      if (!description) {
+        addMessage('Error: skill description is required.', 'error');
+        return;
+      }
+      if (!content) {
         addMessage('Error: skill content is required.', 'error');
         return;
       }
 
       submitSkillBtnEl.disabled = true;
       cancelSkillBtnEl.disabled = true;
-      addMessage('Creating skill from text...', 'bot');
-      startPermissionPolling();
+      addMessage('Creating skill...', 'bot');
 
       try {
-        const payload = await createSkillFromText(skillName, freeText);
-        if (!payload.success) {
-          addMessage(`Skill creation failed: ${payload.message || 'Operation failed.'}`, 'error');
-          return;
-        }
-
-        addMessage(`Skill "${skillName}" created successfully.`, 'bot');
+        const payload = await createSkill(skillName, description, content);
+        addMessage(`Skill "${payload.name || skillName}" created successfully.`, 'bot');
         skillNameInputEl.value = '';
+        skillDescInputEl.value = '';
         skillTextInputEl.value = '';
         try {
           const updatedSkills = await fetchSkills();
