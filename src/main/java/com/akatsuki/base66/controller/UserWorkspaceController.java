@@ -4,6 +4,7 @@ import com.akatsuki.base66.dto.CreateSkillFromTextRequest;
 import com.akatsuki.base66.dto.CreateSkillFromTextResponse;
 import com.akatsuki.base66.dto.SkillDetailResponse;
 import com.akatsuki.base66.dto.SkillSummaryResponse;
+import com.akatsuki.base66.dto.UpdateSkillRequest;
 import com.akatsuki.base66.service.Base66ChatService;
 import com.akatsuki.base66.service.UserWorkspaceService;
 import jakarta.validation.Valid;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -47,6 +49,14 @@ public class UserWorkspaceController {
         String username = resolveAuthenticatedUsername();
         log.info("Skill detail requested by user='{}' skill='{}'", username, skillName);
         return userWorkspaceService.getSkillContent(username, skillName);
+    }
+
+    @PutMapping("/{skillName}")
+    public SkillDetailResponse update(@PathVariable String skillName,
+                                      @Valid @RequestBody UpdateSkillRequest request) {
+        String username = resolveAuthenticatedUsername();
+        log.info("Skill update requested by user='{}' skill='{}'", username, skillName);
+        return userWorkspaceService.updateSkill(username, skillName, request.description(), request.content());
     }
 
     @PostMapping("/from-text")

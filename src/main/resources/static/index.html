@@ -446,27 +446,26 @@
       line-height: 1.35;
     }
 
-    .skill-delete-btn {
-      border: 1px solid #fecdd3;
-      background: #fff1f2;
-      color: #9f1239;
-      border-radius: 8px;
-      font-size: 0.75rem;
+    .skill-modal-delete-btn {
+      border: none;
+      background: #fee2e2;
+      color: #b91c1c;
+      font-size: 0.78rem;
       font-weight: 600;
-      height: 26px;
-      padding: 0 8px;
+      padding: 4px 12px;
+      border-radius: 6px;
       cursor: pointer;
-      white-space: nowrap;
       flex-shrink: 0;
     }
 
-    .skill-delete-btn:hover {
-      background: #ffe4e6;
-      border-color: #fca5a5;
+    .skill-modal-delete-btn:hover {
+      background: #fecaca;
+      color: #991b1b;
     }
 
-    .skill-delete-btn:disabled {
+    .skill-modal-delete-btn:disabled {
       opacity: 0.56;
+      cursor: not-allowed;
       cursor: not-allowed;
     }
 
@@ -571,6 +570,112 @@
       overflow-y: auto;
       flex: 1;
       min-height: 0;
+    }
+
+    /* Edit mode styles */
+    .skill-modal-edit-btn {
+      border: none;
+      background: #2563eb;
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .skill-modal-edit-btn:hover {
+      background: #1d4ed8;
+    }
+
+    .skill-modal-desc-input {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      margin: 4px 18px 0;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      color: #1e293b;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-family: inherit;
+      line-height: 1.35;
+      /* width calc accounts for left+right margin */
+      width: calc(100% - 36px);
+    }
+
+    .skill-modal-desc-input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+
+    .skill-modal-content-textarea {
+      display: block;
+      margin: 12px 18px 0;
+      padding: 12px 14px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: #1e293b;
+      resize: vertical;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 120px;
+      width: calc(100% - 36px);
+      box-sizing: border-box;
+    }
+
+    .skill-modal-content-textarea:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+
+    .skill-modal-edit-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin: 12px 18px 18px;
+    }
+
+    .skill-modal-save-btn {
+      border: none;
+      background: #16a34a;
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 6px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .skill-modal-save-btn:hover {
+      background: #15803d;
+    }
+
+    .skill-modal-save-btn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    .skill-modal-cancel-btn {
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #475569;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 6px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .skill-modal-cancel-btn:hover {
+      background: #f1f5f9;
     }
 
     .pending-title {
@@ -739,10 +844,22 @@
         <div class="skill-modal">
           <div class="skill-modal-header">
             <p id="skillModalTitle" class="skill-modal-title"></p>
-            <button id="skillModalClose" class="skill-modal-close" type="button">&times;</button>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button id="skillModalEditBtn" class="skill-modal-edit-btn" type="button">Edit</button>
+              <button id="skillModalDeleteBtn" class="skill-modal-delete-btn" type="button">Delete</button>
+              <button id="skillModalClose" class="skill-modal-close" type="button">&times;</button>
+            </div>
           </div>
+          <!-- View mode elements -->
           <p id="skillModalDesc" class="skill-modal-desc"></p>
           <pre id="skillModalContent" class="skill-modal-body"></pre>
+          <!-- Edit mode elements (hidden by default) -->
+          <input id="skillModalDescInput" class="skill-modal-desc-input hidden" type="text" placeholder="Description" />
+          <textarea id="skillModalContentTextarea" class="skill-modal-content-textarea hidden" placeholder="Skill content..."></textarea>
+          <div id="skillModalEditActions" class="skill-modal-edit-actions hidden">
+            <button id="skillModalCancelEdit" class="skill-modal-cancel-btn" type="button">Cancel</button>
+            <button id="skillModalSaveBtn" class="skill-modal-save-btn" type="button">Save</button>
+          </div>
         </div>
       </div>
 
@@ -827,6 +944,14 @@
     const skillModalDescEl = document.getElementById('skillModalDesc');
     const skillModalContentEl = document.getElementById('skillModalContent');
     const skillModalCloseEl = document.getElementById('skillModalClose');
+    const skillModalEditBtnEl = document.getElementById('skillModalEditBtn');
+    const skillModalDeleteBtnEl = document.getElementById('skillModalDeleteBtn');
+    const skillModalDescInputEl = document.getElementById('skillModalDescInput');
+    const skillModalContentTextareaEl = document.getElementById('skillModalContentTextarea');
+    const skillModalEditActionsEl = document.getElementById('skillModalEditActions');
+    const skillModalSaveBtnEl = document.getElementById('skillModalSaveBtn');
+    const skillModalCancelEditEl = document.getElementById('skillModalCancelEdit');
+    let currentSkillName = null;
     const chatFormEl = document.getElementById('chatForm');
     const inputEl = document.getElementById('messageInput');
     const sendBtnEl = document.getElementById('sendBtn');
@@ -965,6 +1090,8 @@
     }
 
     async function openSkillModal(skillName) {
+      currentSkillName = skillName;
+      exitEditMode();
       skillModalTitleEl.textContent = skillName;
       skillModalDescEl.textContent = 'Loading...';
       skillModalContentEl.textContent = '';
@@ -984,10 +1111,66 @@
     }
 
     function closeSkillModal() {
+      exitEditMode();
+      currentSkillName = null;
+      skillModalDeleteBtnEl.disabled = false;
       skillModalEl.classList.add('hidden');
       skillModalTitleEl.textContent = '';
       skillModalDescEl.textContent = '';
       skillModalContentEl.textContent = '';
+    }
+
+    function enterEditMode() {
+      skillModalDescInputEl.value = skillModalDescEl.textContent || '';
+      skillModalContentTextareaEl.value = skillModalContentEl.textContent || '';
+      // Hide view elements, show edit elements
+      skillModalDescEl.classList.add('hidden');
+      skillModalContentEl.classList.add('hidden');
+      skillModalEditBtnEl.classList.add('hidden');
+      skillModalDeleteBtnEl.classList.add('hidden');
+      skillModalDescInputEl.classList.remove('hidden');
+      skillModalContentTextareaEl.classList.remove('hidden');
+      skillModalEditActionsEl.classList.remove('hidden');
+      skillModalDescInputEl.focus();
+    }
+
+    function exitEditMode() {
+      skillModalDescInputEl.classList.add('hidden');
+      skillModalContentTextareaEl.classList.add('hidden');
+      skillModalEditActionsEl.classList.add('hidden');
+      skillModalDescEl.classList.remove('hidden');
+      skillModalContentEl.classList.remove('hidden');
+      skillModalEditBtnEl.classList.remove('hidden');
+      skillModalDeleteBtnEl.classList.remove('hidden');
+      skillModalSaveBtnEl.disabled = false;
+    }
+
+    async function updateSkill(skillName, description, content) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(apiUrl(`/api/base66/skills/${encodeURIComponent(skillName)}`), {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ description, content })
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to update skill');
+      }
+
+      return response.json();
     }
 
     function renderSkillList(skills) {
@@ -1013,13 +1196,6 @@
         name.className = 'skill-item-name';
         name.textContent = skill.name;
         header.appendChild(name);
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'skill-delete-btn';
-        deleteBtn.type = 'button';
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.setAttribute('data-skill-name', skill.name);
-        header.appendChild(deleteBtn);
 
         card.appendChild(header);
 
@@ -1643,43 +1819,6 @@
     skillListEl.addEventListener('click', async (event) => {
       const target = event.target;
 
-      // Handle delete button clicks
-      if (target instanceof HTMLButtonElement && target.classList.contains('skill-delete-btn')) {
-        const skillName = target.getAttribute('data-skill-name');
-        if (!skillName) {
-          return;
-        }
-
-        const confirmed = window.confirm(`Are you sure you want to delete the skill "${skillName}"? This cannot be undone.`);
-        if (!confirmed) {
-          return;
-        }
-
-        target.disabled = true;
-        try {
-          const success = await deleteSkill(skillName);
-          if (!success) {
-            addMessage('Error: failed to delete skill.', 'error');
-            return;
-          }
-
-          addMessage(`Skill "${skillName}" has been deleted.`, 'bot');
-          try {
-            const updatedSkills = await fetchSkills();
-            renderSkillList(updatedSkills);
-          } catch (_refreshError) {
-            // Deletion succeeded, list refresh is best-effort
-          }
-        } catch (error) {
-          if (error.message !== 'Authentication required') {
-            addMessage(`Error: ${error.message}`, 'error');
-          }
-        } finally {
-          target.disabled = false;
-        }
-        return;
-      }
-
       // Handle card clicks to view skill content
       const card = target.closest('.skill-item');
       if (card) {
@@ -1706,6 +1845,82 @@
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && !skillModalEl.classList.contains('hidden')) {
         closeSkillModal();
+      }
+    });
+
+    // Modal delete: click handler
+    skillModalDeleteBtnEl.addEventListener('click', async () => {
+      if (!currentSkillName) return;
+
+      const confirmed = window.confirm(`Are you sure you want to delete "${currentSkillName}"? This cannot be undone.`);
+      if (!confirmed) return;
+
+      skillModalDeleteBtnEl.disabled = true;
+      try {
+        const success = await deleteSkill(currentSkillName);
+        if (!success) {
+          addMessage('Error: failed to delete skill.', 'error');
+          skillModalDeleteBtnEl.disabled = false;
+          return;
+        }
+
+        addMessage(`Skill "${currentSkillName}" has been deleted.`, 'bot');
+        closeSkillModal();
+        try {
+          const updatedSkills = await fetchSkills();
+          renderSkillList(updatedSkills);
+        } catch (_refreshError) {
+          // Deletion succeeded, list refresh is best-effort
+        }
+      } catch (error) {
+        if (error.message !== 'Authentication required') {
+          addMessage(`Error: ${error.message}`, 'error');
+        }
+        skillModalDeleteBtnEl.disabled = false;
+      }
+    });
+
+    // Edit mode: enter
+    skillModalEditBtnEl.addEventListener('click', () => {
+      enterEditMode();
+    });
+
+    // Edit mode: cancel
+    skillModalCancelEditEl.addEventListener('click', () => {
+      exitEditMode();
+    });
+
+    // Edit mode: save
+    skillModalSaveBtnEl.addEventListener('click', async () => {
+      const description = skillModalDescInputEl.value.trim();
+      const content = skillModalContentTextareaEl.value.trim();
+
+      if (!description) {
+        skillModalDescInputEl.focus();
+        return;
+      }
+      if (!content) {
+        skillModalContentTextareaEl.focus();
+        return;
+      }
+
+      skillModalSaveBtnEl.disabled = true;
+      try {
+        const updated = await updateSkill(currentSkillName, description, content);
+        // Update view mode with new values
+        skillModalDescEl.textContent = updated.description || '';
+        skillModalContentEl.textContent = updated.content || '(No content)';
+        exitEditMode();
+        // Also refresh the skill list to reflect any description change
+        try {
+          const updatedSkills = await fetchSkills();
+          renderSkillList(updatedSkills);
+        } catch (_e) { /* ignore refresh failure */ }
+      } catch (error) {
+        if (error.message !== 'Authentication required') {
+          skillModalSaveBtnEl.disabled = false;
+          addMessage('Failed to save skill. Please try again.', 'error');
+        }
       }
     });
 

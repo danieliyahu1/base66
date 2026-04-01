@@ -190,6 +190,55 @@ public class UserWorkspaceService {
         );
     }
 
+    public SkillDetailResponse updateSkill(String username, String skillName, String description, String content) {
+        String safeUsername = sanitizeUsername(username);
+        String safeSkillName = validateSkillName(skillName);
+
+        if (!StringUtils.hasText(description)) {
+            throw new IllegalArgumentException("description is required");
+        }
+        if (!StringUtils.hasText(content)) {
+            throw new IllegalArgumentException("content is required");
+        }
+
+        Path workspace = getUserWorkspace(safeUsername);
+        Path skillFile = workspace.resolve(".opencode").resolve("skills").resolve(safeSkillName).resolve("SKILL.md").normalize();
+
+        if (!skillFile.startsWith(workspace)) {
+            throw new IllegalArgumentException("Invalid skill name");
+        }
+
+        if (!Files.isRegularFile(skillFile)) {
+            throw new IllegalArgumentException("Skill not found: " + safeSkillName);
+        }
+
+        // Read existing file to preserve the name from frontmatter
+        String existingRaw;
+        try {
+            existingRaw = Files.readString(skillFile, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read skill file", e);
+        }
+
+        String existingName = extractFrontmatterValue(existingRaw, "name");
+        String preservedName = (existingName != null) ? existingName.trim() : safeSkillName;
+
+        String trimmedDescription = description.trim();
+        String trimmedContent = content.trim();
+
+        String updatedFile = "---\nname: " + preservedName + "\ndescription: " + trimmedDescription + "\n---\n\n" + trimmedContent + "\n";
+
+        try {
+            Files.writeString(skillFile, updatedFile, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to write skill file", e);
+        }
+
+        log.info("Skill updated successfully. user={} skill={}", safeUsername, safeSkillName);
+
+        return new SkillDetailResponse(preservedName, trimmedDescription, trimmedContent);
+    }
+
     private String extractFrontmatterValue(String content, String key) {
         if (!StringUtils.hasText(content) || !content.startsWith("---")) {
             return null;
