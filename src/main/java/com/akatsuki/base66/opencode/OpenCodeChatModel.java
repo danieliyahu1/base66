@@ -16,6 +16,8 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import org.springframework.web.util.UriBuilder;
 import reactor.core.publisher.Flux;
 
+import com.akatsuki.base66.dto.McpServerSummary;
+
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Optional;
@@ -404,6 +406,105 @@ public class OpenCodeChatModel implements ChatModel {
                 .block();
 
             return Boolean.TRUE.equals(legacyResult);
+        }
+    }
+
+    /**
+     * Returns the live MCP server status for all servers visible to this user's workspace.
+     * Calls GET /mcp?directory=... on the OpenCode server.
+     */
+    public List<McpServerSummary> getMcpStatus(String username) {
+        String safeUsername = Objects.requireNonNull(username, "username is required").trim();
+        if (safeUsername.isEmpty()) {
+            throw new IllegalArgumentException("username is required");
+        }
+
+        Scope scope = scopeForUser(safeUsername);
+
+        Map<String, Map<String, Object>> statusMap;
+        try {
+            statusMap = webClient.get()
+                .uri(uriBuilder -> scopedUri(uriBuilder, scope, "/mcp"))
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Map<String, Object>>>() {})
+                .block();
+        } catch (WebClientResponseException ex) {
+            log.warn("Failed to fetch MCP status for user={} status={}", safeUsername, ex.getStatusCode().value());
+            return List.of();
+        }
+
+        if (statusMap == null || statusMap.isEmpty()) {
+            return List.of();
+        }
+
+        List<McpServerSummary> result = new ArrayList<>();
+        for (Map.Entry<String, Map<String, Object>> entry : statusMap.entrySet()) {
+            String name = entry.getKey();
+            Map<String, Object> value = entry.getValue();
+            String status = Objects.toString(value.getOrDefault("status", "unknown"), "unknown");
+            String error = value.containsKey("error") ? Objects.toString(value.get("error"), null) : null;
+            result.add(new McpServerSummary(name, status, error));
+        }
+
+        result.sort((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(a.name(), b.name()));
+        return result;
+    }
+
+    /**
+     * Connects an MCP server at runtime by calling POST /mcp/{name}/connect?directory=...
+     * Returns true if the server was connected successfully.
+     */
+    public boolean connectMcpServer(String username, String serverName) {
+        String safeUsername = Objects.requireNonNull(username, "username is required").trim();
+        String safeName = Objects.requireNonNull(serverName, "serverName is required").trim();
+        if (safeUsername.isEmpty() || safeName.isEmpty()) {
+            throw new IllegalArgumentException("username and serverName are required");
+        }
+
+        Scope scope = scopeForUser(safeUsername);
+
+        try {
+            Boolean result = webClient.post()
+                .uri(uriBuilder -> scopedUri(uriBuilder, scope, "/mcp/{name}/connect", safeName))
+                .retrieve()
+                .bodyToMono(Boolean.class)
+                .block();
+
+            log.info("MCP connect result for user='{}' server='{}': {}", safeUsername, safeName, result);
+            return Boolean.TRUE.equals(result);
+        } catch (WebClientResponseException ex) {
+            log.warn("MCP connect failed for user='{}' server='{}' status={} body={}",
+                safeUsername, safeName, ex.getStatusCode().value(), ex.getResponseBodyAsString());
+            return false;
+        }
+    }
+
+    /**
+     * Disconnects an MCP server at runtime by calling POST /mcp/{name}/disconnect?directory=...
+     * Returns true if the server was disconnected successfully.
+     */
+    public boolean disconnectMcpServer(String username, String serverName) {
+        String safeUsername = Objects.requireNonNull(username, "username is required").trim();
+        String safeName = Objects.requireNonNull(serverName, "serverName is required").trim();
+        if (safeUsername.isEmpty() || safeName.isEmpty()) {
+            throw new IllegalArgumentException("username and serverName are required");
+        }
+
+        Scope scope = scopeForUser(safeUsername);
+
+        try {
+            Boolean result = webClient.post()
+                .uri(uriBuilder -> scopedUri(uriBuilder, scope, "/mcp/{name}/disconnect", safeName))
+                .retrieve()
+                .bodyToMono(Boolean.class)
+                .block();
+
+            log.info("MCP disconnect result for user='{}' server='{}': {}", safeUsername, safeName, result);
+            return Boolean.TRUE.equals(result);
+        } catch (WebClientResponseException ex) {
+            log.warn("MCP disconnect failed for user='{}' server='{}' status={} body={}",
+                safeUsername, safeName, ex.getStatusCode().value(), ex.getResponseBodyAsString());
+            return false;
         }
     }
 

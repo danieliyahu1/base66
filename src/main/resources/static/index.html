@@ -145,7 +145,7 @@
 
     .chat-view {
       display: grid;
-      grid-template-rows: auto 1fr auto auto auto auto;
+      grid-template-rows: auto 1fr auto auto auto auto auto;
       overflow: hidden;
     }
 
@@ -678,6 +678,156 @@
       background: #f1f5f9;
     }
 
+    /* MCP Pane */
+    .mcp-pane {
+      border-top: 1px solid var(--border);
+      background: #f0f4ff;
+      padding: 12px 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .mcp-title {
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+
+    .mcp-warning {
+      margin: 0;
+      font-size: 0.8rem;
+      color: #92400e;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 8px 10px;
+      line-height: 1.35;
+    }
+
+    .mcp-list {
+      display: grid;
+      gap: 8px;
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .mcp-item {
+      border: 1px solid #93c5fd;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .mcp-item-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .mcp-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .mcp-status-dot.connected { background: #22c55e; }
+    .mcp-status-dot.disabled { background: #94a3b8; }
+    .mcp-status-dot.failed { background: #ef4444; }
+    .mcp-status-dot.needs_auth { background: #f59e0b; }
+    .mcp-status-dot.needs_client_registration { background: #f59e0b; }
+    .mcp-status-dot.unknown { background: #94a3b8; }
+
+    .mcp-item-name {
+      margin: 0;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #1e3a8a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mcp-item-status {
+      margin: 0;
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    .mcp-item-error {
+      margin: 0;
+      font-size: 0.72rem;
+      color: #dc2626;
+      line-height: 1.2;
+    }
+
+    .mcp-item-labels {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      flex: 1;
+    }
+
+    /* Toggle switch */
+    .mcp-toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    .mcp-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .mcp-toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: #cbd5e1;
+      border-radius: 22px;
+      transition: background 0.2s;
+    }
+
+    .mcp-toggle-slider::before {
+      content: '';
+      position: absolute;
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .mcp-toggle input:checked + .mcp-toggle-slider {
+      background: #22c55e;
+    }
+
+    .mcp-toggle input:checked + .mcp-toggle-slider::before {
+      transform: translateX(18px);
+    }
+
+    .mcp-toggle input:disabled + .mcp-toggle-slider {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .mcp-toggle.loading .mcp-toggle-slider {
+      opacity: 0.5;
+    }
+
     .pending-title {
       margin: 0;
       font-size: 0.9rem;
@@ -797,6 +947,7 @@
         <div class="header-actions">
           <button id="sessionBtn" class="ghost-btn" type="button" style="display:none;">Sessions</button>
           <button id="skillBtn" class="ghost-btn" type="button">Skills</button>
+          <button id="mcpBtn" class="ghost-btn" type="button">MCP</button>
           <button id="logoutBtn" class="logout-btn" type="button">Logout</button>
         </div>
       </header>
@@ -870,6 +1021,12 @@
           </div>
         </div>
       </div>
+
+      <section id="mcpPane" class="mcp-pane hidden" aria-live="polite">
+        <p class="mcp-title">MCP Servers</p>
+        <p class="mcp-warning">Toggling a server affects all your active sessions. Running tasks will lose or gain MCP tools on their next step.</p>
+        <div id="mcpList" class="mcp-list"></div>
+      </section>
 
       <form id="chatForm" class="composer">
         <input
@@ -961,6 +1118,9 @@
     const skillModalSaveBtnEl = document.getElementById('skillModalSaveBtn');
     const skillModalCancelEditEl = document.getElementById('skillModalCancelEdit');
     let currentSkillName = null;
+    const mcpBtnEl = document.getElementById('mcpBtn');
+    const mcpPaneEl = document.getElementById('mcpPane');
+    const mcpListEl = document.getElementById('mcpList');
     const chatFormEl = document.getElementById('chatForm');
     const inputEl = document.getElementById('messageInput');
     const sendBtnEl = document.getElementById('sendBtn');
@@ -1025,6 +1185,8 @@
       skillDescInputEl.value = '';
       skillTextInputEl.value = '';
       closeSkillModal();
+      mcpPaneEl.classList.add('hidden');
+      mcpListEl.innerHTML = '';
       if (permissionPollTimer) {
         clearInterval(permissionPollTimer);
         permissionPollTimer = null;
@@ -1034,6 +1196,7 @@
 
     async function openSkillPane() {
       sessionPaneEl.classList.add('hidden');
+      mcpPaneEl.classList.add('hidden');
       skillPaneEl.classList.remove('hidden');
       try {
         const skills = await fetchSkills();
@@ -1049,6 +1212,177 @@
       skillDescInputEl.value = '';
       skillTextInputEl.value = '';
     }
+
+    // ── MCP Pane ──────────────────────────────────────────────
+
+    async function fetchMcpServers() {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        return [];
+      }
+
+      const response = await fetch(apiUrl('/api/base66/mcp'), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        return [];
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to load MCP servers');
+      }
+
+      return response.json();
+    }
+
+    async function toggleMcpServer(serverName, enabled) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        return null;
+      }
+
+      const response = await fetch(apiUrl(`/api/base66/mcp/${encodeURIComponent(serverName)}`), {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ enabled })
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle MCP server');
+      }
+
+      return response.json();
+    }
+
+    function renderMcpList(servers) {
+      mcpListEl.innerHTML = '';
+
+      if (!Array.isArray(servers) || servers.length === 0) {
+        const empty = document.createElement('p');
+        empty.style.cssText = 'margin:0;font-size:0.85rem;color:#64748b;';
+        empty.textContent = 'No MCP servers configured.';
+        mcpListEl.appendChild(empty);
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      servers.forEach((server) => {
+        const item = document.createElement('div');
+        item.className = 'mcp-item';
+        item.setAttribute('data-mcp-name', server.name);
+
+        const info = document.createElement('div');
+        info.className = 'mcp-item-info';
+
+        const dot = document.createElement('span');
+        dot.className = `mcp-status-dot ${server.status || 'unknown'}`;
+        dot.title = server.status || 'unknown';
+        info.appendChild(dot);
+
+        const labels = document.createElement('div');
+        labels.className = 'mcp-item-labels';
+
+        const name = document.createElement('p');
+        name.className = 'mcp-item-name';
+        name.textContent = server.name;
+        labels.appendChild(name);
+
+        const statusLabel = document.createElement('p');
+        statusLabel.className = 'mcp-item-status';
+        statusLabel.textContent = server.status || 'unknown';
+        labels.appendChild(statusLabel);
+
+        if (server.error) {
+          const errorLabel = document.createElement('p');
+          errorLabel.className = 'mcp-item-error';
+          errorLabel.textContent = server.error;
+          labels.appendChild(errorLabel);
+        }
+
+        info.appendChild(labels);
+        item.appendChild(info);
+
+        const isOn = server.status === 'connected';
+        const isToggleable = server.status !== 'needs_auth' && server.status !== 'needs_client_registration';
+
+        const toggle = document.createElement('label');
+        toggle.className = 'mcp-toggle';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = isOn;
+        checkbox.disabled = !isToggleable;
+        checkbox.setAttribute('data-mcp-name', server.name);
+
+        checkbox.addEventListener('change', async (e) => {
+          const newEnabled = e.target.checked;
+          const mcpName = e.target.getAttribute('data-mcp-name');
+          toggle.classList.add('loading');
+          checkbox.disabled = true;
+
+          try {
+            const updated = await toggleMcpServer(mcpName, newEnabled);
+            if (updated) {
+              // Refresh full list to get accurate statuses
+              const allServers = await fetchMcpServers();
+              renderMcpList(allServers);
+            } else {
+              // Revert on failure
+              checkbox.checked = !newEnabled;
+            }
+          } catch (err) {
+            addMessage(`Error toggling ${mcpName}: ${err.message}`, 'error');
+            checkbox.checked = !newEnabled;
+          } finally {
+            toggle.classList.remove('loading');
+            checkbox.disabled = !isToggleable;
+          }
+        });
+
+        const slider = document.createElement('span');
+        slider.className = 'mcp-toggle-slider';
+
+        toggle.appendChild(checkbox);
+        toggle.appendChild(slider);
+        item.appendChild(toggle);
+
+        frag.appendChild(item);
+      });
+
+      mcpListEl.appendChild(frag);
+    }
+
+    async function openMcpPane() {
+      sessionPaneEl.classList.add('hidden');
+      skillPaneEl.classList.add('hidden');
+      mcpPaneEl.classList.remove('hidden');
+      try {
+        const servers = await fetchMcpServers();
+        renderMcpList(servers);
+      } catch (_error) {
+        renderMcpList([]);
+      }
+    }
+
+    function closeMcpPane() {
+      mcpPaneEl.classList.add('hidden');
+    }
+
+    // ── End MCP Pane ──────────────────────────────────────────
 
     async function fetchSkills() {
       const token = readToken();
@@ -1452,6 +1786,7 @@
 
     async function openSessionPane() {
       closeSkillPane();
+      closeMcpPane();
       sessionPaneEl.classList.remove('hidden');
       await refreshSessions();
       sessionTitleInputEl.focus();
@@ -1821,6 +2156,18 @@
         return;
       }
       closeSkillPane();
+    });
+
+    mcpBtnEl.addEventListener('click', async () => {
+      if (mcpPaneEl.classList.contains('hidden')) {
+        try {
+          await openMcpPane();
+        } catch (_error) {
+          addMessage('Error: failed to load MCP servers.', 'error');
+        }
+        return;
+      }
+      closeMcpPane();
     });
 
     cancelSkillBtnEl.addEventListener('click', () => {

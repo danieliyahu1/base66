@@ -100,6 +100,59 @@ public class UserWorkspaceService {
         }
     }
 
+    /**
+     * Sets the enabled flag on a specific MCP server in the user's opencode.json.
+     * If the server exists in the user's config, updates its enabled field.
+     * If it only exists in the global config, adds a minimal { "enabled": false } override.
+     *
+     * @return true if the config was modified, false if the server was not found
+     */
+    public boolean setMcpServerEnabled(String username, String serverName, boolean enabled) {
+        String safeUsername = sanitizeUsername(username);
+        if (serverName == null || serverName.isBlank()) {
+            throw new IllegalArgumentException("serverName is required");
+        }
+
+        Path workspace = getUserWorkspace(safeUsername);
+        Path configPath = workspace.resolve("opencode.json").normalize();
+
+        try {
+            ObjectNode root = readOrCreateConfig(configPath);
+
+            ObjectNode mcpNode;
+            JsonNode existingMcpNode = root.get("mcp");
+            if (existingMcpNode instanceof ObjectNode existingObjectNode) {
+                mcpNode = existingObjectNode;
+            } else {
+                mcpNode = objectMapper.createObjectNode();
+                root.set("mcp", mcpNode);
+            }
+
+            JsonNode serverNode = mcpNode.get(serverName);
+            if (serverNode instanceof ObjectNode serverObjectNode) {
+                // Server exists in user config — update its enabled field
+                boolean currentEnabled = serverObjectNode.path("enabled").asBoolean(true);
+                if (currentEnabled == enabled) {
+                    return true; // already in desired state
+                }
+                serverObjectNode.put("enabled", enabled);
+            } else {
+                // Server not in user config — add a minimal override entry
+                // This works for servers defined in global config that need a per-user toggle
+                ObjectNode overrideNode = objectMapper.createObjectNode();
+                overrideNode.put("enabled", enabled);
+                mcpNode.set(serverName, overrideNode);
+            }
+
+            String updated = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+            Files.writeString(configPath, updated + System.lineSeparator(), StandardCharsets.UTF_8);
+            log.info("MCP server '{}' enabled={} for user='{}'", serverName, enabled, safeUsername);
+            return true;
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to update MCP config for user " + safeUsername, e);
+        }
+    }
+
     public List<SkillSummaryResponse> listSkills(String username) {
         String safeUsername = sanitizeUsername(username);
         Path workspace = getUserWorkspace(safeUsername);
