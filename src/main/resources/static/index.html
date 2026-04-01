@@ -417,6 +417,74 @@
       padding: 0 12px;
     }
 
+    .skill-list {
+      display: grid;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .skill-item {
+      border: 1px solid #93c5fd;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .skill-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .skill-item-name {
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1e3a8a;
+    }
+
+    .skill-item-desc {
+      margin: 0;
+      font-size: 0.82rem;
+      color: #334155;
+      line-height: 1.35;
+    }
+
+    .skill-delete-btn {
+      border: 1px solid #fecdd3;
+      background: #fff1f2;
+      color: #9f1239;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      height: 26px;
+      padding: 0 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .skill-delete-btn:hover {
+      background: #ffe4e6;
+      border-color: #fca5a5;
+    }
+
+    .skill-delete-btn:disabled {
+      opacity: 0.56;
+      cursor: not-allowed;
+    }
+
+    .skill-divider {
+      border: none;
+      border-top: 1px solid #bfdbfe;
+      margin: 4px 0;
+    }
+
     .pending-title {
       margin: 0;
       font-size: 0.9rem;
@@ -535,7 +603,7 @@
         </div>
         <div class="header-actions">
           <button id="sessionBtn" class="ghost-btn" type="button" style="display:none;">Sessions</button>
-          <button id="skillBtn" class="ghost-btn" type="button">Create Skill</button>
+          <button id="skillBtn" class="ghost-btn" type="button">Skills</button>
           <button id="logoutBtn" class="logout-btn" type="button">Logout</button>
         </div>
       </header>
@@ -554,8 +622,11 @@
       </section>
 
       <section id="skillPane" class="skill-pane hidden" aria-live="polite">
-        <p class="skill-title">Create Skill From Free Text</p>
-        <p class="skill-hint">Provide skill name and content. OpenCode will create SKILL.md and generate only the description.</p>
+        <p class="skill-title">Your Skills</p>
+        <div id="skillList" class="skill-list"></div>
+        <hr class="skill-divider">
+        <p class="skill-title">Create New Skill</p>
+        <p class="skill-hint">Provide a name and describe what the skill should do. The agent will create it for you.</p>
         <label class="field-label" for="skillNameInput">Skill name</label>
         <input
           id="skillNameInput"
@@ -647,6 +718,7 @@
     const createSessionBtnEl = document.getElementById('createSessionBtn');
     const sessionListEl = document.getElementById('sessionList');
     const skillPaneEl = document.getElementById('skillPane');
+    const skillListEl = document.getElementById('skillList');
     const skillNameInputEl = document.getElementById('skillNameInput');
     const skillTextInputEl = document.getElementById('skillTextInput');
     const submitSkillBtnEl = document.getElementById('submitSkillBtn');
@@ -710,6 +782,7 @@
       sessionTitleInputEl.value = '';
       sessionListEl.innerHTML = '';
       skillPaneEl.classList.add('hidden');
+      skillListEl.innerHTML = '';
       skillNameInputEl.value = '';
       skillTextInputEl.value = '';
       if (permissionPollTimer) {
@@ -719,16 +792,91 @@
       showLogin(message || '');
     }
 
-    function openSkillPane() {
+    async function openSkillPane() {
       sessionPaneEl.classList.add('hidden');
       skillPaneEl.classList.remove('hidden');
-      skillNameInputEl.focus();
+      try {
+        const skills = await fetchSkills();
+        renderSkillList(skills);
+      } catch (_error) {
+        renderSkillList([]);
+      }
     }
 
     function closeSkillPane() {
       skillPaneEl.classList.add('hidden');
       skillNameInputEl.value = '';
       skillTextInputEl.value = '';
+    }
+
+    async function fetchSkills() {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        return [];
+      }
+
+      const response = await fetch(apiUrl('/api/base66/skills'), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        return [];
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to load skills');
+      }
+
+      return response.json();
+    }
+
+    function renderSkillList(skills) {
+      skillListEl.innerHTML = '';
+      if (!Array.isArray(skills) || skills.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'skill-item-desc';
+        empty.textContent = 'No skills created yet. Use the form below to create your first skill.';
+        skillListEl.appendChild(empty);
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      skills.forEach((skill) => {
+        const card = document.createElement('article');
+        card.className = 'skill-item';
+
+        const header = document.createElement('div');
+        header.className = 'skill-item-header';
+
+        const name = document.createElement('p');
+        name.className = 'skill-item-name';
+        name.textContent = skill.name;
+        header.appendChild(name);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'skill-delete-btn';
+        deleteBtn.type = 'button';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.setAttribute('data-skill-name', skill.name);
+        header.appendChild(deleteBtn);
+
+        card.appendChild(header);
+
+        if (skill.description) {
+          const desc = document.createElement('p');
+          desc.className = 'skill-item-desc';
+          desc.textContent = skill.description;
+          card.appendChild(desc);
+        }
+
+        frag.appendChild(card);
+      });
+
+      skillListEl.appendChild(frag);
     }
 
     function formatTime(epochMillis) {
@@ -1210,6 +1358,33 @@
       return response.json();
     }
 
+    async function deleteSkill(skillName) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(apiUrl(`/api/base66/skills/${encodeURIComponent(skillName)}`), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to delete skill');
+      }
+
+      const payload = await response.json();
+      return Boolean(payload.success);
+    }
+
     loginFormEl.addEventListener('submit', async (event) => {
       event.preventDefault();
       const username = usernameInputEl.value.trim();
@@ -1292,9 +1467,13 @@
       target.disabled = false;
     });
 
-    skillBtnEl.addEventListener('click', () => {
+    skillBtnEl.addEventListener('click', async () => {
       if (skillPaneEl.classList.contains('hidden')) {
-        openSkillPane();
+        try {
+          await openSkillPane();
+        } catch (_error) {
+          addMessage('Error: failed to load skills.', 'error');
+        }
         return;
       }
       closeSkillPane();
@@ -1302,6 +1481,46 @@
 
     cancelSkillBtnEl.addEventListener('click', () => {
       closeSkillPane();
+    });
+
+    skillListEl.addEventListener('click', async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLButtonElement) || !target.classList.contains('skill-delete-btn')) {
+        return;
+      }
+
+      const skillName = target.getAttribute('data-skill-name');
+      if (!skillName) {
+        return;
+      }
+
+      const confirmed = window.confirm(`Are you sure you want to delete the skill "${skillName}"? This cannot be undone.`);
+      if (!confirmed) {
+        return;
+      }
+
+      target.disabled = true;
+      try {
+        const success = await deleteSkill(skillName);
+        if (!success) {
+          addMessage('Error: failed to delete skill.', 'error');
+          return;
+        }
+
+        addMessage(`Skill "${skillName}" has been deleted.`, 'bot');
+        try {
+          const updatedSkills = await fetchSkills();
+          renderSkillList(updatedSkills);
+        } catch (_refreshError) {
+          // Deletion succeeded, list refresh is best-effort
+        }
+      } catch (error) {
+        if (error.message !== 'Authentication required') {
+          addMessage(`Error: ${error.message}`, 'error');
+        }
+      } finally {
+        target.disabled = false;
+      }
     });
 
     submitSkillBtnEl.addEventListener('click', async () => {
@@ -1328,8 +1547,15 @@
           return;
         }
 
-        addMessage(`Skill created at ${payload.path}`, 'bot');
-        closeSkillPane();
+        addMessage(`Skill "${skillName}" created successfully.`, 'bot');
+        skillNameInputEl.value = '';
+        skillTextInputEl.value = '';
+        try {
+          const updatedSkills = await fetchSkills();
+          renderSkillList(updatedSkills);
+        } catch (_refreshError) {
+          // Skill was created, list refresh is best-effort
+        }
       } catch (error) {
         if (error.message !== 'Authentication required') {
           addMessage(`Skill creation failed: ${error.message}`, 'error');

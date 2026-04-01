@@ -1,6 +1,7 @@
 package com.akatsuki.base66.service;
 
 import com.akatsuki.base66.dto.CreateSkillFromTextResponse;
+import com.akatsuki.base66.dto.SkillSummaryResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
@@ -12,9 +13,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -98,6 +102,71 @@ public class UserWorkspaceService {
         } catch (IOException e) {
             throw new IllegalStateException("Failed to read user workspace config", e);
         }
+    }
+
+    public List<SkillSummaryResponse> listSkills(String username) {
+        String safeUsername = sanitizeUsername(username);
+        Path workspace = getUserWorkspace(safeUsername);
+        Path skillsDir = workspace.resolve(".opencode").resolve("skills");
+
+        List<SkillSummaryResponse> skills = new ArrayList<>();
+
+        if (!Files.isDirectory(skillsDir)) {
+            return skills;
+        }
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(skillsDir)) {
+            for (Path skillDir : stream) {
+                if (!Files.isDirectory(skillDir)) {
+                    continue;
+                }
+
+                Path skillFile = skillDir.resolve("SKILL.md");
+                if (!Files.isRegularFile(skillFile)) {
+                    continue;
+                }
+
+                try {
+                    String content = Files.readString(skillFile, StandardCharsets.UTF_8);
+                    String name = extractFrontmatterValue(content, "name");
+                    String description = extractFrontmatterValue(content, "description");
+
+                    if (StringUtils.hasText(name)) {
+                        skills.add(new SkillSummaryResponse(
+                            name.trim(),
+                            StringUtils.hasText(description) ? description.trim() : ""
+                        ));
+                    }
+                } catch (IOException e) {
+                    log.warn("Failed to read skill file at {}. Skipping.", skillFile, e);
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Failed to list skills directory for user={}.", safeUsername, e);
+            return skills;
+        }
+
+        skills.sort(Comparator.comparing(SkillSummaryResponse::name, String.CASE_INSENSITIVE_ORDER));
+        return skills;
+    }
+
+    private String extractFrontmatterValue(String content, String key) {
+        if (!StringUtils.hasText(content) || !content.startsWith("---")) {
+            return null;
+        }
+
+        int endIndex = content.indexOf("---", 3);
+        if (endIndex < 0) {
+            return null;
+        }
+
+        String frontmatter = content.substring(3, endIndex);
+        Pattern pattern = Pattern.compile("(?m)^" + Pattern.quote(key) + ":\\s*\"?(.+?)\"?\\s*$");
+        Matcher matcher = pattern.matcher(frontmatter);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
     public String buildSkillCreationPrompt(String skillName, String freeText) {
@@ -248,6 +317,32 @@ public class UserWorkspaceService {
         );
         Pattern descriptionPattern = Pattern.compile("(?m)^description:\\s*.+$");
         return namePattern.matcher(content).find() && descriptionPattern.matcher(content).find();
+    }
+
+    public boolean deleteSkill(String username, String skillName) {
+        String safeUsername = sanitizeUsername(username);
+        String safeSkillName = validateSkillName(skillName);
+        Path workspace = getUserWorkspace(safeUsername);
+        Path skillDir = workspace.resolve(".opencode").resolve("skills").resolve(safeSkillName).normalize();
+
+        if (!skillDir.startsWith(workspace)) {
+            throw new IllegalArgumentException("Invalid skill name");
+        }
+
+        Path skillFile = skillDir.resolve("SKILL.md");
+        if (!Files.isRegularFile(skillFile)) {
+            throw new IllegalArgumentException("Skill not found: " + safeSkillName);
+        }
+
+        try {
+            Files.deleteIfExists(skillFile);
+            Files.deleteIfExists(skillDir);
+            log.info("Skill deleted successfully. user={} skill={}", safeUsername, safeSkillName);
+            return true;
+        } catch (IOException e) {
+            log.error("Failed to delete skill. user={} skill={}", safeUsername, safeSkillName, e);
+            throw new IllegalStateException("Failed to delete skill", e);
+        }
     }
 
     private String extractSkillPath(String response) {
