@@ -1,6 +1,7 @@
 package com.akatsuki.base66.service;
 
 import com.akatsuki.base66.dto.CreateSkillFromTextResponse;
+import com.akatsuki.base66.dto.SkillDetailResponse;
 import com.akatsuki.base66.dto.SkillSummaryResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -148,6 +149,45 @@ public class UserWorkspaceService {
 
         skills.sort(Comparator.comparing(SkillSummaryResponse::name, String.CASE_INSENSITIVE_ORDER));
         return skills;
+    }
+
+    public SkillDetailResponse getSkillContent(String username, String skillName) {
+        String safeUsername = sanitizeUsername(username);
+        String safeSkillName = validateSkillName(skillName);
+        Path workspace = getUserWorkspace(safeUsername);
+        Path skillFile = workspace.resolve(".opencode").resolve("skills").resolve(safeSkillName).resolve("SKILL.md").normalize();
+
+        if (!skillFile.startsWith(workspace)) {
+            throw new IllegalArgumentException("Invalid skill name");
+        }
+
+        if (!Files.isRegularFile(skillFile)) {
+            throw new IllegalArgumentException("Skill not found: " + safeSkillName);
+        }
+
+        String raw;
+        try {
+            raw = Files.readString(skillFile, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read skill file", e);
+        }
+
+        String name = extractFrontmatterValue(raw, "name");
+        String description = extractFrontmatterValue(raw, "description");
+
+        String body = "";
+        if (raw.startsWith("---")) {
+            int endIndex = raw.indexOf("---", 3);
+            if (endIndex >= 0) {
+                body = raw.substring(endIndex + 3).trim();
+            }
+        }
+
+        return new SkillDetailResponse(
+            name != null ? name.trim() : safeSkillName,
+            description != null ? description.trim() : "",
+            body
+        );
     }
 
     private String extractFrontmatterValue(String content, String key) {

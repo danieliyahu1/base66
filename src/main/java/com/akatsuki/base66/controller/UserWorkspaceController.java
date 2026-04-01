@@ -2,6 +2,7 @@ package com.akatsuki.base66.controller;
 
 import com.akatsuki.base66.dto.CreateSkillFromTextRequest;
 import com.akatsuki.base66.dto.CreateSkillFromTextResponse;
+import com.akatsuki.base66.dto.SkillDetailResponse;
 import com.akatsuki.base66.dto.SkillSummaryResponse;
 import com.akatsuki.base66.service.Base66ChatService;
 import com.akatsuki.base66.service.UserWorkspaceService;
@@ -39,6 +40,13 @@ public class UserWorkspaceController {
         List<SkillSummaryResponse> skills = userWorkspaceService.listSkills(username);
         log.info("Skill list returned {} skills for user='{}'", skills.size(), username);
         return skills;
+    }
+
+    @GetMapping("/{skillName}")
+    public SkillDetailResponse get(@PathVariable String skillName) {
+        String username = resolveAuthenticatedUsername();
+        log.info("Skill detail requested by user='{}' skill='{}'", username, skillName);
+        return userWorkspaceService.getSkillContent(username, skillName);
     }
 
     @PostMapping("/from-text")

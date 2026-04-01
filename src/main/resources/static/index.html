@@ -425,15 +425,6 @@
       padding-right: 4px;
     }
 
-    .skill-item {
-      border: 1px solid #93c5fd;
-      background: #ffffff;
-      border-radius: 10px;
-      padding: 8px 10px;
-      display: grid;
-      gap: 4px;
-    }
-
     .skill-item-header {
       display: flex;
       align-items: center;
@@ -483,6 +474,103 @@
       border: none;
       border-top: 1px solid #bfdbfe;
       margin: 4px 0;
+    }
+
+    .skill-item {
+      border: 1px solid #93c5fd;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: grid;
+      gap: 4px;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .skill-item:hover {
+      border-color: #60a5fa;
+      box-shadow: 0 1px 4px rgba(37, 99, 235, 0.12);
+    }
+
+    .skill-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .skill-modal-overlay.hidden {
+      display: none;
+    }
+
+    .skill-modal {
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+      width: 100%;
+      max-width: 560px;
+      max-height: 70vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .skill-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px 0;
+    }
+
+    .skill-modal-title {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+
+    .skill-modal-close {
+      border: none;
+      background: none;
+      font-size: 1.4rem;
+      color: #64748b;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .skill-modal-close:hover {
+      color: #1e293b;
+    }
+
+    .skill-modal-desc {
+      margin: 4px 18px 0;
+      font-size: 0.85rem;
+      color: #475569;
+      line-height: 1.35;
+    }
+
+    .skill-modal-body {
+      margin: 12px 18px 18px;
+      padding: 12px 14px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: #1e293b;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
     }
 
     .pending-title {
@@ -641,11 +729,22 @@
           class="skill-input"
           placeholder="Example: Create a skill that reviews Java controllers for auth and validation issues..."
         ></textarea>
-        <div class="skill-actions">
+         <div class="skill-actions">
           <button id="submitSkillBtn" class="action-btn" type="button">Create</button>
           <button id="cancelSkillBtn" class="ghost-btn" type="button">Cancel</button>
         </div>
       </section>
+
+      <div id="skillModal" class="skill-modal-overlay hidden">
+        <div class="skill-modal">
+          <div class="skill-modal-header">
+            <p id="skillModalTitle" class="skill-modal-title"></p>
+            <button id="skillModalClose" class="skill-modal-close" type="button">&times;</button>
+          </div>
+          <p id="skillModalDesc" class="skill-modal-desc"></p>
+          <pre id="skillModalContent" class="skill-modal-body"></pre>
+        </div>
+      </div>
 
       <form id="chatForm" class="composer">
         <input
@@ -723,6 +822,11 @@
     const skillTextInputEl = document.getElementById('skillTextInput');
     const submitSkillBtnEl = document.getElementById('submitSkillBtn');
     const cancelSkillBtnEl = document.getElementById('cancelSkillBtn');
+    const skillModalEl = document.getElementById('skillModal');
+    const skillModalTitleEl = document.getElementById('skillModalTitle');
+    const skillModalDescEl = document.getElementById('skillModalDesc');
+    const skillModalContentEl = document.getElementById('skillModalContent');
+    const skillModalCloseEl = document.getElementById('skillModalClose');
     const chatFormEl = document.getElementById('chatForm');
     const inputEl = document.getElementById('messageInput');
     const sendBtnEl = document.getElementById('sendBtn');
@@ -785,6 +889,7 @@
       skillListEl.innerHTML = '';
       skillNameInputEl.value = '';
       skillTextInputEl.value = '';
+      closeSkillModal();
       if (permissionPollTimer) {
         clearInterval(permissionPollTimer);
         permissionPollTimer = null;
@@ -834,6 +939,57 @@
       return response.json();
     }
 
+    async function fetchSkillContent(skillName) {
+      const token = readToken();
+      if (!token) {
+        logout('Your session was not found. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(apiUrl(`/api/base66/skills/${encodeURIComponent(skillName)}`), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        logout('Session expired or invalid token. Please sign in again.');
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to load skill content');
+      }
+
+      return response.json();
+    }
+
+    async function openSkillModal(skillName) {
+      skillModalTitleEl.textContent = skillName;
+      skillModalDescEl.textContent = 'Loading...';
+      skillModalContentEl.textContent = '';
+      skillModalEl.classList.remove('hidden');
+
+      try {
+        const detail = await fetchSkillContent(skillName);
+        skillModalTitleEl.textContent = detail.name || skillName;
+        skillModalDescEl.textContent = detail.description || '';
+        skillModalContentEl.textContent = detail.content || '(No content)';
+      } catch (error) {
+        if (error.message !== 'Authentication required') {
+          skillModalDescEl.textContent = '';
+          skillModalContentEl.textContent = 'Failed to load skill content.';
+        }
+      }
+    }
+
+    function closeSkillModal() {
+      skillModalEl.classList.add('hidden');
+      skillModalTitleEl.textContent = '';
+      skillModalDescEl.textContent = '';
+      skillModalContentEl.textContent = '';
+    }
+
     function renderSkillList(skills) {
       skillListEl.innerHTML = '';
       if (!Array.isArray(skills) || skills.length === 0) {
@@ -848,6 +1004,7 @@
       skills.forEach((skill) => {
         const card = document.createElement('article');
         card.className = 'skill-item';
+        card.setAttribute('data-skill-name', skill.name);
 
         const header = document.createElement('div');
         header.className = 'skill-item-header';
@@ -1485,41 +1642,70 @@
 
     skillListEl.addEventListener('click', async (event) => {
       const target = event.target;
-      if (!(target instanceof HTMLButtonElement) || !target.classList.contains('skill-delete-btn')) {
-        return;
-      }
 
-      const skillName = target.getAttribute('data-skill-name');
-      if (!skillName) {
-        return;
-      }
-
-      const confirmed = window.confirm(`Are you sure you want to delete the skill "${skillName}"? This cannot be undone.`);
-      if (!confirmed) {
-        return;
-      }
-
-      target.disabled = true;
-      try {
-        const success = await deleteSkill(skillName);
-        if (!success) {
-          addMessage('Error: failed to delete skill.', 'error');
+      // Handle delete button clicks
+      if (target instanceof HTMLButtonElement && target.classList.contains('skill-delete-btn')) {
+        const skillName = target.getAttribute('data-skill-name');
+        if (!skillName) {
           return;
         }
 
-        addMessage(`Skill "${skillName}" has been deleted.`, 'bot');
+        const confirmed = window.confirm(`Are you sure you want to delete the skill "${skillName}"? This cannot be undone.`);
+        if (!confirmed) {
+          return;
+        }
+
+        target.disabled = true;
         try {
-          const updatedSkills = await fetchSkills();
-          renderSkillList(updatedSkills);
-        } catch (_refreshError) {
-          // Deletion succeeded, list refresh is best-effort
+          const success = await deleteSkill(skillName);
+          if (!success) {
+            addMessage('Error: failed to delete skill.', 'error');
+            return;
+          }
+
+          addMessage(`Skill "${skillName}" has been deleted.`, 'bot');
+          try {
+            const updatedSkills = await fetchSkills();
+            renderSkillList(updatedSkills);
+          } catch (_refreshError) {
+            // Deletion succeeded, list refresh is best-effort
+          }
+        } catch (error) {
+          if (error.message !== 'Authentication required') {
+            addMessage(`Error: ${error.message}`, 'error');
+          }
+        } finally {
+          target.disabled = false;
         }
-      } catch (error) {
-        if (error.message !== 'Authentication required') {
-          addMessage(`Error: ${error.message}`, 'error');
+        return;
+      }
+
+      // Handle card clicks to view skill content
+      const card = target.closest('.skill-item');
+      if (card) {
+        const skillName = card.getAttribute('data-skill-name');
+        if (skillName) {
+          await openSkillModal(skillName);
         }
-      } finally {
-        target.disabled = false;
+      }
+    });
+
+    // Modal dismiss: close button
+    skillModalCloseEl.addEventListener('click', () => {
+      closeSkillModal();
+    });
+
+    // Modal dismiss: click outside the modal
+    skillModalEl.addEventListener('click', (event) => {
+      if (event.target === skillModalEl) {
+        closeSkillModal();
+      }
+    });
+
+    // Modal dismiss: Escape key
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !skillModalEl.classList.contains('hidden')) {
+        closeSkillModal();
       }
     });
 
